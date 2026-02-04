@@ -72,19 +72,21 @@ app.listen(PORT, () => {
 
 
 
+/*
+    //Const for online member test
+    import { Client, GatewayIntentBits } from 'discord.js';
 
-//Const for online member test
-import { Client, GatewayIntentBits } from 'discord.js';
+    // Initialize the Gateway client
+    const client = new Client({ 
+      intents: [GatewayIntentBits.Guilds] 
+    });
 
-// Initialize the Gateway client
-const client = new Client({ 
-  intents: [GatewayIntentBits.Guilds] 
-});
+    // This is what triggers the "Green Dot"
+    client.once('ready', () => {
+      console.log(`✅ Gateway connected! ${client.user.tag} is now online.`);
+    });
 
-// This is what triggers the "Green Dot"
-client.once('ready', () => {
-  console.log(`✅ Gateway connected! ${client.user.tag} is now online.`);
-});
+    // Use the token from your .env / Railway variables
+    client.login(process.env.DISCORD_TOKEN);
 
-// Use the token from your .env / Railway variables
-client.login(process.env.DISCORD_TOKEN);
+    */
