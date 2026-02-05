@@ -72,7 +72,7 @@ app.listen(PORT, () => {
 
 
 
-
+/*
     //Const for online member test
     import { Client, GatewayIntentBits } from 'discord.js';
 
@@ -89,4 +89,4 @@ app.listen(PORT, () => {
     // Use the token from your .env / Railway variables
     client.login(process.env.DISCORD_TOKEN);
 
-    
+    */
