@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import axios from 'axios';
 import {
   ButtonStyleTypes,
   InteractionResponseFlags,
@@ -10,6 +11,7 @@ import {
 } from 'discord-interactions';
 import { getRandomEmoji, DiscordRequest } from './utils.js';
 import { getShuffledOptions, getResult } from './game.js';
+import { Client, GatewayIntentBits } from 'discord.js';
 
 // Create an express app
 const app = express();
@@ -90,3 +92,43 @@ app.listen(PORT, () => {
     client.login(process.env.DISCORD_TOKEN);
 
     */
+
+
+//Local Testing functionality
+
+const client = new Client({ 
+  intents: [GatewayIntentBits.Guilds] 
+});
+
+client.once('clientReady', () => {
+  console.log(`Bot is online locally as ${client.user.tag}`);
+  console.log(`Ready to test BF6 stats logic!`);
+});
+
+client.login(process.env.DISCORD_TOKEN);
+testStats()
+
+//API Request from Bf6 subAPIWebApp
+
+
+async function testStats() {
+  try {
+    const playerName = "BlueDragon12336"; 
+    const platform = "xbox";
+    const url = `https://api.gametools.network/bf6/stats/?name=${playerName}&platform=${platform}`;
+
+    console.log("Fetching from:", url);
+
+    const response = await axios.get(url);
+    const data = response.data;
+
+    console.log(`--- Stats for ${data.userName} ---`);
+    console.log(`K/D Ratio: ${data.killDeath}`);
+    console.log(`Wins: ${data.wins}`);
+    console.log(`Matches Played: ${data.matchesPlayed}`);
+    
+  } catch (error) {
+    //name or API down
+    console.error("Error:", error.response ? error.response.data : error.message);
+  }
+}
