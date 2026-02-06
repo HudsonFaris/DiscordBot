@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import axios from 'axios';
+import { EmbedBuilder } from 'discord.js';
 import {
   ButtonStyleTypes,
   InteractionResponseFlags,
@@ -124,7 +125,7 @@ const SQUAD_DATABASE = {
   
 
 
-async function testStats(squadNames) {
+async function getStatsData(squadNames) {
   const url = `https://api.gametools.network/bf6/multiple/`;
 
   //Mapping over names for object not strings wanted
@@ -151,23 +152,16 @@ async function testStats(squadNames) {
     if (!Array.isArray(squadData)) squadData = [squadData];
 
     squadData.sort((a, b) => (b.killDeath || 0) - (a.killDeath || 0));
-
-    console.log("--- 🏆 Squad Leaderboard 🏆 ---");
-    squadData.forEach((p, i) => {
-      const name = squadNames[i] || "Unknown Soldier";
-      const kd = p.killDeath ? p.killDeath.toFixed(2) : "0.00";
-      const kills = p.kills || 0;
-    
-      console.log(`${i+1}. ${name} | K/D: ${kd} | Kills: ${kills}`);
-
-  });
+    return squadData;
+      
   } catch (error) {
-    console.error("API Error:", error.response?.data || error.message);
+    console.error("API Error:", error.message);
+    return []; //Return empty array on failure
   }
 }
 
 //API Request from Bf6 subAPIWebApp
-testStats(["BlueDragon12336", "Waterishshark67"]);
+getStatsData(["BlueDragon12336", "Waterishshark67"]);
 
 //Uncomment functionCall TOO
 //Function to find specific ID's, change as needed for everyone else. 
@@ -191,3 +185,54 @@ async function findMyIds() {
 }
 
 //findMyIds();
+
+
+
+//Message Leaderboard (Channel Specific)
+
+async function sendSquadLeaderboard(channelId, squadNames) {
+  try {
+    const channel = await client.channels.fetch(channelId);
+    if (!channel) return console.error("No channel exists");
+
+    const squadData = await getStatsData(squadNames);
+    if (squadData.length === 0) return;
+
+    //Create the Embed object
+    const leaderboardEmbed = new EmbedBuilder()
+      .setColor(0x2f3136) //Color cade
+      .setTitle('🏆 Squad Leaderboard')
+      .setDescription('Battlefield 6 Live Stats') //Future add date here (TODO)
+      .setTimestamp()
+      .setFooter({ text: 'Stats provided by yours truly.' });
+
+    //Add each player as a field in the embed
+    squadData.forEach((p, i) => {
+      const name = squadNames[i] || "Soldier";
+      const kd = p.killDeath ? p.killDeath.toFixed(2) : "0.00";
+      const kills = p.kills || 0;
+
+      leaderboardEmbed.addFields({ 
+        name: `${i + 1}. ${name}`, 
+        value: `**K/D:** \`${kd}\` | **Kills:** \`${kills.toLocaleString()}\``,
+        inline: false 
+      });
+    });
+
+    //Send the embed
+    await channel.send({ embeds: [leaderboardEmbed] });
+    console.log("Embed sent to Discord!");
+
+  } catch (error) {
+    console.error("Embed Error:", error);
+  }
+}
+
+
+//Calling message
+client.once('clientReady', () => { //Checks if client still ready
+  const CHANNEL_ID = "1469191917643366547"; 
+  const PLAYERS = ["BlueDragon12336", "Waterishshark67"];
+
+  sendSquadLeaderboard(CHANNEL_ID, PLAYERS);
+});
