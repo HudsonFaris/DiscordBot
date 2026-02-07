@@ -120,6 +120,31 @@ const SQUAD_DATABASE = {
     player_id: 1845585091,
     user_id:   1004812473201,
     platform: "xboxone" 
+  },
+  "nujraq": {
+    player_id: 1885125573,
+    user_id:   1005806777237,
+    platform: "pc" 
+  },
+  "dustycorgi289": {
+    player_id: 1840425312,
+    user_id:   1004788837066,
+    platform: "xboxone" 
+  },
+  "S0NIFY": {
+    player_id: 1005102117028,
+    user_id:   1010076717028,
+    platform: "pc" 
+  },
+  "KFC IS CHICKEN": {
+    player_id: 1833329689,
+    user_id:   1004676048444,
+    platform: "pc" 
+  },
+  "PicantePollo": {
+    player_id: 1850508957,
+    user_id:   1001412562669,
+    platform: "pc" 
   }
 };
   
@@ -127,12 +152,13 @@ const SQUAD_DATABASE = {
 
 async function getStatsData(squadNames) {
   const url = `https://api.gametools.network/bf6/multiple/`;
+  
 
   //Mapping over names for object not strings wanted
   const requestBody = squadNames.map(name => {
     const info = SQUAD_DATABASE[name];
     if (!info) {
-    console.warn(`⚠️ Warning: ${name} was not found in SQUAD_DATABASE. Skipping...`);
+    console.warn(`Warning: ${name} was not found in SQUAD_DATABASE. Skipping...`);
     return null; 
   }
     return {
@@ -161,13 +187,13 @@ async function getStatsData(squadNames) {
 }
 
 //API Request from Bf6 subAPIWebApp
-getStatsData(["BlueDragon12336", "Waterishshark67"]);
+getStatsData(["BlueDragon12336", "Waterishshark67", "nujraq", "dustycorgi289", "S0NIFY", "KFC IS CHICKEN", "PicantePollo"]);
 
 //Uncomment functionCall TOO
 //Function to find specific ID's, change as needed for everyone else. 
 async function findMyIds() {
-  const name = "Bluedragon12336";
-  const platform = "xboxone";
+  const name = "PicantePollo";
+  const platform = "pc";
   const url = `https://api.gametools.network/bf6/stats/?name=${name}&platform=${platform}`;
 
   try {
@@ -208,14 +234,41 @@ async function sendSquadLeaderboard(channelId, squadNames) {
 
     //Add each player as a field in the embed
     squadData.forEach((p, i) => {
-      const name = squadNames[i] || "Soldier";
+      //check both p.id and p.userId because the API can be inconsistent
+      const matchedEntry = Object.entries(SQUAD_DATABASE).find(([name, info]) => {
+          return info.player_id == p.id || info.user_id == p.userId;
+      });
+
+      //name from the database if found, otherwise fallback to the API name
+      const name = matchedEntry ? matchedEntry[0] : (p.userName || "Unknown Soldier");
+      
       const kd = p.killDeath ? p.killDeath.toFixed(2) : "0.00";
       const kills = p.kills || 0;
+      const assists = p.killAssists || 0;
+      const revives = p.revives || 0;
+      const accuracy = p.accuracy || "0.0%";
+      
+      let level = p.rank || p.level;
+      if (!level && p.XP && p.XP[0]) {
+          const totalXP = p.XP[0].total;
+          
+          //BF6 Progression Math: 
+          //1-50: ~13k per level average (650k total)
+          //51-100: Requirements jump to ~25k per level
+          if (totalXP < 650000) {
+              level = Math.floor(totalXP / 13000) || 1;
+          } else {
+              // Calculate levels beyond 50
+              level = 50 + Math.floor((totalXP - 650000) / 25000);
+          }
+      }
+
+      const castLevel = Math.floor(Number(level) / 3);
 
       leaderboardEmbed.addFields({ 
-        name: `${i + 1}. ${name}`, 
-        value: `**K/D:** \`${kd}\` | **Kills:** \`${kills.toLocaleString()}\``,
-        inline: false 
+          name: `${i + 1}. ${name} (Level ${castLevel})`, //Divide by 3... roughly...
+          value: `**K/D:** \`${kd}\` | **Kills:** \`${kills.toLocaleString()}\` | **Acc:** \`${accuracy}\` | **Assists:** \`${assists.toLocaleString()}\` | **Revives:** \`${revives.toLocaleString()}\``,
+          inline: false 
       });
     });
 
@@ -231,8 +284,9 @@ async function sendSquadLeaderboard(channelId, squadNames) {
 
 //Calling message
 client.once('clientReady', () => { //Checks if client still ready
-  const CHANNEL_ID = "1469191917643366547"; 
-  const PLAYERS = ["BlueDragon12336", "Waterishshark67"];
+  const { env } = process;
+  const CHANNEL_ID = env.LEADERBOARD_CHANNEL_ID;
+  const PLAYERS = ["BlueDragon12336", "Waterishshark67", "nujraq", "dustycorgi289", "S0NIFY", "KFC IS CHICKEN", "PicantePollo"];
 
   sendSquadLeaderboard(CHANNEL_ID, PLAYERS);
 });
