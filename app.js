@@ -141,9 +141,9 @@ const SQUAD_DATABASE = {
     user_id:   1004676048444,
     platform: "pc" 
   },
-  "PicantePollo": {
-    player_id: 1850508957,
-    user_id:   1001412562669,
+  "vPollo": {
+    player_id: 988034789,
+    user_id:   1000300389582,
     platform: "pc" 
   }
 };
@@ -187,12 +187,12 @@ async function getStatsData(squadNames) {
 }
 
 //API Request from Bf6 subAPIWebApp
-getStatsData(["BlueDragon12336", "Waterishshark67", "nujraq", "dustycorgi289", "S0NIFY", "KFC IS CHICKEN", "PicantePollo"]);
+getStatsData(["BlueDragon12336", "Waterishshark67", "nujraq", "dustycorgi289", "S0NIFY", "KFC IS CHICKEN", "vPollo"]);
 
 //Uncomment functionCall TOO
 //Function to find specific ID's, change as needed for everyone else. 
 async function findMyIds() {
-  const name = "PicantePollo";
+  const name = "vPollo";
   const platform = "pc";
   const url = `https://api.gametools.network/bf6/stats/?name=${name}&platform=${platform}`;
 
@@ -286,7 +286,7 @@ async function sendSquadLeaderboard(channelId, squadNames) {
 client.once('clientReady', () => { //Checks if client still ready
   const { env } = process;
   const CHANNEL_ID = env.LEADERBOARD_CHANNEL_ID;
-  const PLAYERS = ["BlueDragon12336", "Waterishshark67", "nujraq", "dustycorgi289", "S0NIFY", "KFC IS CHICKEN", "PicantePollo"];
+  const PLAYERS = ["BlueDragon12336", "Waterishshark67", "nujraq", "dustycorgi289", "S0NIFY", "KFC IS CHICKEN", "vPollo"];
 
   sendSquadLeaderboard(CHANNEL_ID, PLAYERS);
 });
