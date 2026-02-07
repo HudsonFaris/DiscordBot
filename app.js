@@ -114,37 +114,44 @@ const SQUAD_DATABASE = {
   "BlueDragon12336": { 
     player_id: 891692513,
     user_id:   1000091551547,
-    platform: "xboxone" 
+    platform: "xboxone", 
+    display: "BlueDragon"
   },
   "Waterishshark67": { 
     player_id: 1845585091,
     user_id:   1004812473201,
-    platform: "xboxone" 
+    platform: "xboxone", 
+    display: "WaterishShark"
   },
   "nujraq": {
     player_id: 1885125573,
     user_id:   1005806777237,
-    platform: "pc" 
+    platform: "pc", 
+    display: "nujraq"
   },
   "dustycorgi289": {
     player_id: 1840425312,
     user_id:   1004788837066,
-    platform: "xboxone" 
+    platform: "xboxone", 
+    display: "Dusty"
   },
   "S0NIFY": {
     player_id: 1005102117028,
     user_id:   1010076717028,
-    platform: "pc" 
+    platform: "pc", 
+    display: "S0NIFY"
   },
   "KFC IS CHICKEN": {
     player_id: 1833329689,
     user_id:   1004676048444,
-    platform: "pc" 
+    platform: "pc", 
+    display: "KFC (Cheater)"
   },
-  "vPollo": {
-    player_id: 988034789,
-    user_id:   1000300389582,
-    platform: "pc" 
+  "MrDrunkChicken": {
+    player_id: 1630687874,
+    user_id:   1000275121812,
+    platform: "pc",
+    display: "Pollo" 
   }
 };
   
@@ -187,12 +194,12 @@ async function getStatsData(squadNames) {
 }
 
 //API Request from Bf6 subAPIWebApp
-getStatsData(["BlueDragon12336", "Waterishshark67", "nujraq", "dustycorgi289", "S0NIFY", "KFC IS CHICKEN", "vPollo"]);
+getStatsData(["BlueDragon12336", "Waterishshark67", "nujraq", "dustycorgi289", "S0NIFY", "KFC IS CHICKEN", "MrDrunkChicken"]);
 
 //Uncomment functionCall TOO
 //Function to find specific ID's, change as needed for everyone else. 
 async function findMyIds() {
-  const name = "vPollo";
+  const name = "MrDrunkChicken";
   const platform = "pc";
   const url = `https://api.gametools.network/bf6/stats/?name=${name}&platform=${platform}`;
 
@@ -239,8 +246,9 @@ async function sendSquadLeaderboard(channelId, squadNames) {
           return info.player_id == p.id || info.user_id == p.userId;
       });
 
-      //name from the database if found, otherwise fallback to the API name
-      const name = matchedEntry ? matchedEntry[0] : (p.userName || "Unknown Soldier");
+      //name from the database if found, otherwise fallback to the API name and or default to display name
+      const dbInfo = matchedEntry ? matchedEntry[1] : null;
+      const displayName = dbInfo?.display || (matchedEntry ? matchedEntry[0] : (p.userName || "Unknown Soldier")); //Not efficient
       
       const kd = p.killDeath ? p.killDeath.toFixed(2) : "0.00";
       const kills = p.kills || 0;
@@ -266,7 +274,7 @@ async function sendSquadLeaderboard(channelId, squadNames) {
       const castLevel = Math.floor(Number(level) / 3);
 
       leaderboardEmbed.addFields({ 
-          name: `${i + 1}. ${name} (Level ${castLevel})`, //Divide by 3... roughly...
+          name: `${i + 1}. ${displayName} (Level ${castLevel})`, //Divide by 3... roughly...
           value: `**K/D:** \`${kd}\` | **Kills:** \`${kills.toLocaleString()}\` | **Acc:** \`${accuracy}\` | **Assists:** \`${assists.toLocaleString()}\` | **Revives:** \`${revives.toLocaleString()}\``,
           inline: false 
       });
@@ -286,7 +294,7 @@ async function sendSquadLeaderboard(channelId, squadNames) {
 client.once('clientReady', () => { //Checks if client still ready
   const { env } = process;
   const CHANNEL_ID = env.LEADERBOARD_CHANNEL_ID;
-  const PLAYERS = ["BlueDragon12336", "Waterishshark67", "nujraq", "dustycorgi289", "S0NIFY", "KFC IS CHICKEN", "vPollo"];
+  const PLAYERS = ["BlueDragon12336", "Waterishshark67", "nujraq", "dustycorgi289", "S0NIFY", "KFC IS CHICKEN", "MrDrunkChicken"];
 
   sendSquadLeaderboard(CHANNEL_ID, PLAYERS);
 });
