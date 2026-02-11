@@ -231,6 +231,10 @@ async function sendSquadLeaderboard(channelId, squadNames) {
     const squadData = await getStatsData(squadNames);
     if (squadData.length === 0) return;
 
+    //Declare early for leave logic
+    let mostLeaves = -1;
+    let leaverName = "None";
+
     //Create the Embed object
     const leaderboardEmbed = new EmbedBuilder()
       .setColor(0x2f3136) //Color cade
@@ -242,11 +246,12 @@ async function sendSquadLeaderboard(channelId, squadNames) {
     //Add each player as a field in the embed
     squadData.forEach((p, i) => {
       //check both p.id and p.userId because the API can be inconsistent
-      const matchedEntry = Object.entries(SQUAD_DATABASE).find(([name, info]) => {
+      const matchedEntry = Object.entries(SQUAD_DATABASE).find(([dbKey, info]) => {
           return info.player_id == p.id || info.user_id == p.userId;
       });
 
       //name from the database if found, otherwise fallback to the API name and or default to display name
+      const dbKey = matchedEntry ? matchedEntry[0] : null; 
       const dbInfo = matchedEntry ? matchedEntry[1] : null;
       const displayName = dbInfo?.display || (matchedEntry ? matchedEntry[0] : (p.userName || "Unknown Soldier")); //Not efficient
       
@@ -255,6 +260,8 @@ async function sendSquadLeaderboard(channelId, squadNames) {
       const assists = p.killAssists || 0;
       const revives = p.revives || 0;
       const accuracy = p.accuracy || "0.0%";
+
+
       
       let level = p.rank || p.level;
       if (!level && p.XP && p.XP[0]) {
@@ -273,12 +280,41 @@ async function sendSquadLeaderboard(channelId, squadNames) {
 
       const castLevel = Math.floor(Number(level) / 3);
 
+      const topClass = p.classes?.sort((a, b) => b.kills - a.kills)[0]?.className || "N/A";
+      const topVehicle = p.vehicles?.sort((a, b) => b.kills - a.kills)[0]?.vehicleName || "None";
+      const topGun = p.weapons?.sort((a, b) => b.kills - a.kills)[0]?.weaponName || "None";
+
+      // //Early leave logic
+      // const matches = p.matchesPlayed || 0;
+      // const wins = p.wins || 0;
+      // const losses = p.loses || 0; // API uses 'loses'
+      
+      // const combinedWinLoss = wins + losses;
+      // const leaves = matches - combinedWinLoss;
+
+      // if (leaves > mostLeaves) {
+      //     mostLeaves = leaves;
+      //     leaverName = displayName;
+      // }
+      
+
       leaderboardEmbed.addFields({ 
-          name: `${i + 1}. ${displayName} (Level ${castLevel})`, //Divide by 3... roughly...
-          value: `**K/D:** \`${kd}\` | **Kills:** \`${kills.toLocaleString()}\` | **Acc:** \`${accuracy}\` | **Assists:** \`${assists.toLocaleString()}\` | **Revives:** \`${revives.toLocaleString()}\``,
-          inline: false 
+        name: `${i + 1}. ${displayName} (Level ${castLevel})`, 
+        value: `**COMBAT**\n` +
+               `K/D: \`${kd}\` | Kills: \`${kills.toLocaleString()}\` | Acc: \`${accuracy}\` \n` +
+               `**PLAYSTYLE**\n` +
+               `Class: \`${topClass}\` | Vehicle: \`${topVehicle}\` | Preferred Gun: \`${topGun}\` \n` +
+               `**TEAMWORK**\n` +
+               `Assists: \`${assists.toLocaleString()}\` | Revives: \`${revives.toLocaleString()}\``,
+        inline: false 
       });
     });
+
+    // leaderboardEmbed.addFields({
+    //     name: 'Top Leaver',
+    //     value: `**${leaverName}** has the most early leaves with \`${mostLeaves}\` matches unfinished.`,
+    //     inline: false
+    // });
 
     //Send the embed
     await channel.send({ embeds: [leaderboardEmbed] });
