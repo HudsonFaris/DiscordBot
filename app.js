@@ -278,7 +278,7 @@ async function sendSquadLeaderboard(channelId, squadNames) {
           }
       }
 
-      const castLevel = Math.floor(Number(level) / 3);
+      const castLevel = Math.floor((Number(level) / 3)+7);
 
       const topClass = p.classes?.sort((a, b) => b.kills - a.kills)[0]?.className || "N/A";
       const topVehicle = p.vehicles?.sort((a, b) => b.kills - a.kills)[0]?.vehicleName || "None";
