@@ -152,6 +152,12 @@ const SQUAD_DATABASE = {
     user_id:   1000275121812,
     platform: "pc",
     display: "Pollo" 
+  },
+  "jjlewie3": {
+    player_id: 1007470702122,
+    user_id:   1015921902122,
+    platform: "pc",
+    display: "John" 
   }
 };
   
@@ -194,12 +200,12 @@ async function getStatsData(squadNames) {
 }
 
 //API Request from Bf6 subAPIWebApp
-getStatsData(["BlueDragon12336", "Waterishshark67", "nujraq", "dustycorgi289", "S0NIFY", "KFC IS CHICKEN", "MrDrunkChicken"]);
+getStatsData(["BlueDragon12336", "Waterishshark67", "nujraq", "dustycorgi289", "S0NIFY", "KFC IS CHICKEN", "MrDrunkChicken", "jjlewie3"]).then(data => console.log("Squad Data:", data));
 
 //Uncomment functionCall TOO
 //Function to find specific ID's, change as needed for everyone else. 
 async function findMyIds() {
-  const name = "MrDrunkChicken";
+  const name = "jjlewie3";
   const platform = "pc";
   const url = `https://api.gametools.network/bf6/stats/?name=${name}&platform=${platform}`;
 
@@ -278,7 +284,7 @@ async function sendSquadLeaderboard(channelId, squadNames) {
           }
       }
 
-      const castLevel = Math.floor((Number(level) / 3)+7);
+      const castLevel = Math.floor((Number(level) / 3)+4);
 
       const topClass = p.classes?.sort((a, b) => b.kills - a.kills)[0]?.className || "N/A";
       const topVehicle = p.vehicles?.sort((a, b) => b.kills - a.kills)[0]?.vehicleName || "None";
@@ -330,7 +336,7 @@ async function sendSquadLeaderboard(channelId, squadNames) {
 client.once('clientReady', () => { //Checks if client still ready
   const { env } = process;
   const CHANNEL_ID = env.LEADERBOARD_CHANNEL_ID;
-  const PLAYERS = ["BlueDragon12336", "Waterishshark67", "nujraq", "dustycorgi289", "S0NIFY", "KFC IS CHICKEN", "MrDrunkChicken"];
+  const PLAYERS = ["BlueDragon12336", "Waterishshark67", "nujraq", "dustycorgi289", "S0NIFY", "KFC IS CHICKEN", "MrDrunkChicken", "jjlewie3"];
 
   sendSquadLeaderboard(CHANNEL_ID, PLAYERS);
 });
