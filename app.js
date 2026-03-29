@@ -267,6 +267,7 @@ async function sendSquadLeaderboard(channelId, squadNames) {
       const revives = p.revives || 0;
       const accuracy = p.accuracy || "0.0%";
 
+      //error 500 was API server error, but we want to make sure we have a level to display for the embed, so we can calculate it ourselves if needed.
 
       
       let level = p.rank || p.level;
