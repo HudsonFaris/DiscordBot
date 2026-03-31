@@ -277,6 +277,8 @@ async function sendSquadLeaderboard(channelId, squadNames) {
           //BF6 Progression Math: 
           //1-50: ~13k per level average (650k total)
           //51-100: Requirements jump to ~25k per level
+
+          //need to revisit level system, take actual values with linear/exponential progresison, should just be linear. 
           if (totalXP < 650000) {
               level = Math.floor(totalXP / 13000) || 1;
           } else {
