@@ -269,7 +269,7 @@ async function sendSquadLeaderboard(channelId, squadNames) {
 
       //error 500 was API server error, but we want to make sure we have a level to display for the embed, so we can calculate it ourselves if needed.
 
-
+//max wins was also an error 500, so we want to make sure we have a value for that as well, and can calculate it if needed.
       //check done
       
       let level = p.rank || p.level;
