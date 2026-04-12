@@ -147,12 +147,6 @@ const SQUAD_DATABASE = {
     platform: "pc", 
     display: "KFC (Cheater)"
   },
-  "MrDrunkChicken": {
-    player_id: 1630687874,
-    user_id:   1000275121812,
-    platform: "pc",
-    display: "Pollo" 
-  },
   "jjlewie3": {
     player_id: 1007470702122,
     user_id:   1015921902122,
@@ -200,7 +194,7 @@ async function getStatsData(squadNames) {
 }
 
 //API Request from Bf6 subAPIWebApp
-getStatsData(["BlueDragon12336", "Waterishshark67", "nujraq", "dustycorgi289", "S0NIFY", "KFC IS CHICKEN", "MrDrunkChicken", "jjlewie3"]).then(data => console.log("Squad Data:", data));
+getStatsData(["BlueDragon12336", "Waterishshark67", "nujraq", "dustycorgi289", "S0NIFY", "KFC IS CHICKEN", "jjlewie3"]).then(data => console.log("Squad Data:", data));
 
 //Uncomment functionCall TOO
 //Function to find specific ID's, change as needed for everyone else. 
