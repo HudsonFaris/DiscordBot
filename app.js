@@ -336,6 +336,8 @@ async function sendSquadLeaderboard(channelId, squadNames) {
   }
 }
 
+//function call for leaderboard, change channel ID and player names as needed.
+
 
 //Calling message
 client.once('clientReady', () => { //Checks if client still ready
