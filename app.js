@@ -334,6 +334,8 @@ async function sendSquadLeaderboard(channelId, squadNames) {
   } catch (error) {
     console.error("Embed Error:", error);
   }
+
+  //embed error is inconsistent, remove. 
 }
 
 //function call for leaderboard, change channel ID and player names as needed.
