@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import axios from 'axios';
 import { EmbedBuilder } from 'discord.js';
+//import for listener, talker, join VC planned
 import {
   ButtonStyleTypes,
   InteractionResponseFlags,
