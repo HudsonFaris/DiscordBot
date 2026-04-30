@@ -1,23 +1,34 @@
-from fastapi import FastAPI
-from faster_whisper import WhisperModel
+import io
 import ollama
+from fastapi import FastAPI, UploadFile, File
+from faster_whisper import WhisperModel
 
 app = FastAPI()
 
-# Load the model into GPU (cuda) or CPU
-#'distil-large-v3' is the fastest for 2026
-model = WhisperModel("distil-large-v3", device="cuda", compute_type="float16")
+# Note: Changed to "base" for your first test to ensure it's fast
+model = WhisperModel("base", device="cuda", compute_type="float16")
 
-@app.post("/transcribe")
-async def transcribe(audio_data: bytes):
-    segments, info = model.transcribe(audio_data, beam_size=5)
-    text = "".join([segment.text for segment in segments])
-    return {"text": text}
+@app.post("/process_audio")
+async def process_audio(file: UploadFile = File(...)):
+    audio_bytes = await file.read()
+    audio_file = io.BytesIO(audio_bytes)
 
-@app.post("/generate_argument")
-async def generate(user_text: str):
+    segments, _ = model.transcribe(audio_file, beam_size=5)
+    user_text = "".join([s.text for s in segments])
+    
+    if not user_text.strip():
+        return {"response": ""}
+
+    print(f"User said: {user_text}")
+
     response = ollama.chat(model='llama3', messages=[
-        {'role': 'system', 'content': 'You are Hudson. Argue about everything.'},
+        {'role': 'system', 'content': 'You are Hudson, a CS senior at Mines. You love BF6. Someone just said something to you in VC. Argue with them using snark and facts. Keep it short.'},
         {'role': 'user', 'content': user_text},
     ])
-    return {"response": response['message']['content']}
+
+    return {"text": user_text, "response": response['message']['content']}
+
+# THIS PART IS CRITICAL TO STAY ALIVE
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="127.0.0.1", port=8000)
