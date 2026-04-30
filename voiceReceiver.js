@@ -1,22 +1,23 @@
 // voiceReceiver.js
-const { EndBehaviorType } = require('@discordjs/voice');
-const prism = require('prism-media');
+import { EndBehaviorType } from '@discordjs/voice';
+import prism from 'prism-media';
 
-function listenToUser(connection, userId) {
+export function listenToUser(connection, userId) {
     const receiver = connection.receiver;
 
-    //voice strewam
     const opusStream = receiver.subscribe(userId, {
         end: {
             behavior: EndBehaviorType.AfterSilence,
-            duration: 100, //stop listening after 100ms of silence
+            duration: 500, // 100ms is too short, you'll get cut off. 500ms is better.
         },
     });
 
-    //Convert Opus to PCM
-    const pcmStream = opusStream.pipe(new prism.opus.Decoder({ rate: 48000, channels: 2, frameSize: 960 }));
+    // Convert Opus to PCM
+    const pcmStream = opusStream.pipe(new prism.opus.Decoder({ 
+        rate: 48000, 
+        channels: 2, 
+        frameSize: 960 
+    }));
 
     return pcmStream;
 }
-
-module.exports = { listenToUser };

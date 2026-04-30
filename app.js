@@ -154,7 +154,8 @@ client.once(Events.ClientReady, (readyClient) => {
   const PLAYERS = Object.keys(SQUAD_DATABASE);
   
   if (CHANNEL_ID) {
-    sendSquadLeaderboard(CHANNEL_ID, PLAYERS);
+    continue
+    //sendSquadLeaderboard(CHANNEL_ID, PLAYERS); temp removal for other danny bugs
   }
 });
 
@@ -166,18 +167,19 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const voiceChannel = member?.voice.channel;
 
     if (!voiceChannel) {
-      return interaction.reply({ content: "You need to be in a VC first!", ephemeral: true });
+      return interaction.reply({ content: "Join a VC first!", ephemeral: true });
     }
 
-    await interaction.reply("🎙️ I'm in. Let's see if your stats actually back up that talk.");
+    await interaction.reply("🎙️ I'm in. Let's hear your 'stats'.");
 
     const connection = joinVoiceChannel({
       channelId: voiceChannel.id,
       guildId: voiceChannel.guild.id,
       adapterCreator: voiceChannel.guild.voiceAdapterCreator,
-      selfDeaf: false,
+      selfDeaf: false, // CRITICAL: Bot cannot hear you if it is self-deafened
     });
 
+    console.log("✅ Connection established. Starting Engine...");
     startArgumentEngine(connection);
   }
 });
