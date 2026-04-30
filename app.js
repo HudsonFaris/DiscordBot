@@ -8,7 +8,6 @@ import {
   InteractionResponseFlags,
   InteractionResponseType,
   InteractionType,
-  MessageComponentTypes,
   verifyKeyMiddleware,
 } from 'discord-interactions';
 import { getRandomEmoji } from './utils.js';
@@ -17,8 +16,6 @@ import { getRandomEmoji } from './utils.js';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ONE CLIENT TO RULE THEM ALL
-// Includes all necessary intents for Stats, Leaderboards, and Voice
 const client = new Client({ 
   intents: [
     GatewayIntentBits.Guilds,
@@ -117,9 +114,34 @@ async function sendSquadLeaderboard(channelId, squadNames) {
   }
 }
 
+// --- HELPER: VOICE JOIN ---
+async function handleVoiceJoin(guildId, userId) {
+  try {
+    const guild = await client.guilds.fetch(guildId);
+    const member = await guild.members.fetch(userId);
+    const voiceChannel = member.voice.channel;
+
+    if (!voiceChannel) return null;
+
+    const connection = joinVoiceChannel({
+      channelId: voiceChannel.id,
+      guildId: guild.id,
+      adapterCreator: guild.voiceAdapterCreator,
+      selfDeaf: false,
+    });
+
+    console.log(`✅ Connection established in ${voiceChannel.name}. Starting Engine...`);
+    startArgumentEngine(connection);
+    return true;
+  } catch (err) {
+    console.error("Voice Join Error:", err);
+    return false;
+  }
+}
+
 // --- EXPRESS ENDPOINT (WEBHOOKS) ---
 app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async function (req, res) {
-  const { type, data } = req.body;
+  const { type, data, guild_id, member } = req.body;
 
   if (type === InteractionType.PING) {
     return res.send({ type: InteractionResponseType.PONG });
@@ -127,23 +149,33 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
 
   if (type === InteractionType.APPLICATION_COMMAND) {
     const { name } = data;
+
     if (name === 'test') {
       return res.send({
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: {
-          flags: InteractionResponseFlags.IS_COMPONENTS_V2,
-          components: [{
-            type: MessageComponentTypes.TEXT_DISPLAY,
-            content: `hello world ${getRandomEmoji()}`
-          }]
-        },
+        data: { content: `hello world ${getRandomEmoji()}` }
+      });
+    }
+
+    if (name === 'argue') {
+      const joined = await handleVoiceJoin(guild_id, member.user.id);
+      
+      if (!joined) {
+        return res.send({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: { 
+            content: "You need to be in a VC first!", 
+            flags: InteractionResponseFlags.EPHEMERAL 
+          }
+        });
+      }
+
+      return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: { content: "🎙️ I'm in. Keep talking and see what happens." }
       });
     }
   }
-});
-
-app.listen(PORT, () => {
-  console.log('Express listening on port', PORT);
 });
 
 // --- DISCORD GATEWAY EVENTS ---
@@ -153,36 +185,40 @@ client.once(Events.ClientReady, (readyClient) => {
   const CHANNEL_ID = process.env.LEADERBOARD_CHANNEL_ID;
   const PLAYERS = Object.keys(SQUAD_DATABASE);
   
-  if (CHANNEL_ID) {
-    continue
-    //sendSquadLeaderboard(CHANNEL_ID, PLAYERS); temp removal for other danny bugs
+  if (CHANNEL_ID == "67") {
+    sendSquadLeaderboard(CHANNEL_ID, PLAYERS);
   }
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
-  if (interaction.commandName === 'argue') {
-    const member = interaction.member;
-    const voiceChannel = member?.voice.channel;
+  if (interaction.commandName === 'stop') {
+    const connection = getVoiceConnection(interaction.guildId);
 
-    if (!voiceChannel) {
+    if (!connection) {
+        return interaction.reply({ content: "I'm not even in a voice channel, chill.", ephemeral: true });
+    }
+
+    connection.destroy();
+    console.log("🛑 Voice connection destroyed. Engine stopped.");
+    await interaction.reply("👋 Peace. Learn to play the game before you talk to me again.");
+}
+
+  if (interaction.commandName === 'argue') {
+    const joined = await handleVoiceJoin(interaction.guildId, interaction.user.id);
+
+    if (!joined) {
       return interaction.reply({ content: "Join a VC first!", ephemeral: true });
     }
 
     await interaction.reply("🎙️ I'm in. Let's hear your 'stats'.");
-
-    const connection = joinVoiceChannel({
-      channelId: voiceChannel.id,
-      guildId: voiceChannel.guild.id,
-      adapterCreator: voiceChannel.guild.voiceAdapterCreator,
-      selfDeaf: false, // CRITICAL: Bot cannot hear you if it is self-deafened
-    });
-
-    console.log("✅ Connection established. Starting Engine...");
-    startArgumentEngine(connection);
   }
 });
 
 // --- START ---
+app.listen(PORT, () => {
+  console.log('Express listening on port', PORT);
+});
+
 client.login(process.env.DISCORD_TOKEN);

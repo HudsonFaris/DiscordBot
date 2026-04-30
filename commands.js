@@ -52,6 +52,12 @@ const argueCommand = {
   contexts: [0], // Voice only works in Servers (Context 0)
 };
 
-const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND, argueCommand];
+const stopCommand = {
+  name: 'stop',
+  description: 'Stops the AI arguing engine and kicks the bot from VC',
+  type: 1,
+};
+
+const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND, argueCommand, stopCommand];
 
 InstallGlobalCommands(process.env.APP_ID, ALL_COMMANDS);
