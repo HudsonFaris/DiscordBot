@@ -8,3 +8,10 @@ libsodium-wrappers
 ffmpeg-static
 snazzah/davey
 prism-media
+
+
+fastapi
+uvicorn
+faster-whisper
+ollama
+torch
