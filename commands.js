@@ -44,6 +44,14 @@ const CHALLENGE_COMMAND = {
   contexts: [0, 2],
 };
 
-const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND];
+const argueCommand = {
+  name: 'argue',
+  description: 'Starts the AI arguing engine in your current VC',
+  type: 1,
+  integration_types: [0, 1],
+  contexts: [0], // Voice only works in Servers (Context 0)
+};
+
+const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND, argueCommand];
 
 InstallGlobalCommands(process.env.APP_ID, ALL_COMMANDS);

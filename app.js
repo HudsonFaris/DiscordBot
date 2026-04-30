@@ -350,3 +350,46 @@ client.once('clientReady', () => { //Checks if client still ready
 
   sendSquadLeaderboard(CHANNEL_ID, PLAYERS);
 });
+
+//voice channel join and listen functionality (WIP, not fully implemented yet)
+
+import { Client, GatewayIntentBits, Events } from 'discord.js';
+import { joinVoiceChannel } from '@discordjs/voice';
+import { startArgumentEngine } from './argumentEngine.js'; //client instead to make eaasier
+
+const client = new Client({ 
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildVoiceStates, // Required to join/listen
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ] 
+});
+
+client.on(Events.InteractionCreate, async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
+
+  if (interaction.commandName === 'argue') {
+    const member = interaction.member;
+    const voiceChannel = member.voice.channel;
+
+    if (!voiceChannel) {
+      return interaction.reply({ content: "You need to be in a VC first!", ephemeral: true });
+    }
+
+    // Acknowledge the command immediately
+    await interaction.reply("🎙️ Joining the VC. Prepare to be proven wrong.");
+
+    const connection = joinVoiceChannel({
+      channelId: voiceChannel.id,
+      guildId: voiceChannel.guild.id,
+      adapterCreator: voiceChannel.guild.voiceAdapterCreator,
+      selfDeaf: false,
+    });
+
+    // Start the local AI engine
+    startArgumentEngine(connection);
+  }
+});
+
+client.login(process.env.DISCORD_TOKEN);
