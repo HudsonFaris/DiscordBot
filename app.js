@@ -1,8 +1,10 @@
 import 'dotenv/config';
 import express from 'express';
 import axios from 'axios';
+import { setDefaultAutoSelectFamily } from 'node:net';
+setDefaultAutoSelectFamily(false);
 import { EmbedBuilder, Client, GatewayIntentBits, Events } from 'discord.js';
-import { joinVoiceChannel } from '@discordjs/voice';
+import { joinVoiceChannel, getVoiceConnection} from '@discordjs/voice';
 import { startArgumentEngine } from './argumentEngine.js';
 import {
   InteractionResponseFlags,
@@ -123,18 +125,41 @@ async function handleVoiceJoin(guildId, userId) {
 
     if (!voiceChannel) return null;
 
+    console.log(`--- Attempting Connection to ${voiceChannel.name} ---`);
+
     const connection = joinVoiceChannel({
       channelId: voiceChannel.id,
       guildId: guild.id,
       adapterCreator: guild.voiceAdapterCreator,
       selfDeaf: false,
+      debug: true // This enables low-level discord.js logs
     });
 
-    console.log(`✅ Connection established in ${voiceChannel.name}. Starting Engine...`);
+    // 1. Monitor the high-level state
+    connection.on('stateChange', (oldState, newState) => {
+      console.log(`📡 [STATE] ${oldState.status} -> ${newState.status}`);
+    });
+
+    // 2. Monitor the Networking/UDP layer (The most important log right now)
+    connection.on('debug', (message) => {
+      // Filter out some noise, but show us the networking bits
+      if (message.includes('networking') || message.includes('UDP')) {
+        console.log(`🔍 [NET-DEBUG] ${message}`);
+      }
+    });
+
+    // 3. Catch specific errors (Timeout, Address Discovery, etc)
+    connection.on('error', (error) => {
+      console.error(`❌ [CONNECTION ERROR] ${error.name}: ${error.message}`);
+      if (error.message.includes('UDP')) {
+        console.error("💡 CLUE: Your computer can't open a UDP path to Discord.");
+      }
+    });
+
     startArgumentEngine(connection);
     return true;
   } catch (err) {
-    console.error("Voice Join Error:", err);
+    console.error("💥 [CRITICAL FAILURE]:", err);
     return false;
   }
 }

@@ -4,6 +4,16 @@ import FormData from 'form-data';
 export async function startArgumentEngine(connection) {
     const receiver = connection.receiver;
 
+    // DEBUG: Log whenever any packet is received from the voice gateway
+    connection.on('stateChange', (oldState, newState) => {
+        console.log(`📡 Connection state: ${oldState.status} -> ${newState.status}`);
+    });
+
+// This will trigger if the bot sees ANYONE speaking at a protocol level
+    receiver.speaking.on('start', (userId) => {
+        console.log(`📣 RAW PROTOCOL: User ${userId} started speaking`);
+    });
+
     console.log("👂 Engine is live. Waiting for someone to speak...");
 
     receiver.speaking.on('start', (userId) => {
