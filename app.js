@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import axios from 'axios';
 import { EmbedBuilder, Client, GatewayIntentBits, Events } from 'discord.js';
-import { joinVoiceChannel, getVoiceConnection } from '@discordjs/voice';
+import { joinVoiceChannel, getVoiceConnection, VoiceConnectionStatus } from '@discordjs/voice';
 import { startArgumentEngine } from './argumentEngine.js';
 
 const client = new Client({ 
@@ -119,6 +119,13 @@ async function handleVoiceJoin(guildId, userId) {
 
     connection.on('stateChange', (oldState, newState) => {
       console.log(`📡 [STATE] ${oldState.status} -> ${newState.status}`);
+      if (newState.status === VoiceConnectionStatus.Disconnected) {
+        console.log(`🔴 DISCONNECT CODE: ${newState.closeCode}`);
+      }
+    });
+
+    connection.on('error', (err) => {
+      console.error(`❌ VOICE ERROR: ${err.message}`);
     });
 
     startArgumentEngine(connection);
@@ -149,7 +156,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (!joined) {
       return interaction.editReply("Join a VC first!");
     }
-    await interaction.editReply("Listening");
+    await interaction.editReply("🎙️ I'm in. Let's hear your 'stats'.");
   }
 
   if (interaction.commandName === 'stop') {
@@ -159,7 +166,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     connection.destroy();
     console.log("🛑 Voice connection destroyed.");
-    await interaction.reply("Out");
+    await interaction.reply("👋 Peace. Learn to play the game before you talk to me again.");
   }
 });
 
