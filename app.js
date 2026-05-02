@@ -156,7 +156,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (!joined) {
       return interaction.editReply("Join a VC first!");
     }
-    await interaction.editReply("🎙️ I'm in. Let's hear your 'stats'.");
+    await interaction.editReply("Listening");
   }
 
   if (interaction.commandName === 'stop') {
@@ -166,8 +166,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     connection.destroy();
     console.log("🛑 Voice connection destroyed.");
-    await interaction.reply("👋 Peace. Learn to play the game before you talk to me again.");
+    await interaction.reply("Out");
   }
 });
 
 client.login(process.env.DISCORD_TOKEN);
+
+client.ws.on('VOICE_STATE_UPDATE', (data) => {
+  console.log('VOICE_STATE_UPDATE received:', JSON.stringify(data));
+});
+
+client.ws.on('VOICE_SERVER_UPDATE', (data) => {
+  console.log('VOICE_SERVER_UPDATE received:', JSON.stringify(data));
+});
