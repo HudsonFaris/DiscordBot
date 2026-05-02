@@ -1,22 +1,8 @@
 import 'dotenv/config';
-import express from 'express';
 import axios from 'axios';
-import { setDefaultAutoSelectFamily } from 'node:net';
-setDefaultAutoSelectFamily(false);
 import { EmbedBuilder, Client, GatewayIntentBits, Events } from 'discord.js';
-import { joinVoiceChannel, getVoiceConnection} from '@discordjs/voice';
+import { joinVoiceChannel, getVoiceConnection } from '@discordjs/voice';
 import { startArgumentEngine } from './argumentEngine.js';
-import {
-  InteractionResponseFlags,
-  InteractionResponseType,
-  InteractionType,
-  verifyKeyMiddleware,
-} from 'discord-interactions';
-import { getRandomEmoji } from './utils.js';
-
-// --- INITIALIZATION ---
-const app = express();
-const PORT = process.env.PORT || 3000;
 
 const client = new Client({ 
   intents: [
@@ -27,7 +13,6 @@ const client = new Client({
   ] 
 });
 
-// --- SQUAD DATABASE ---
 const SQUAD_DATABASE = {
   "BlueDragon12336": { player_id: 891692513, user_id: 1000091551547, platform: "xboxone", display: "BlueDragon" },
   "Waterishshark67": { player_id: 1845585091, user_id: 1004812473201, platform: "xboxone", display: "WaterishShark" },
@@ -39,7 +24,6 @@ const SQUAD_DATABASE = {
   "foggytugboat207": { player_id: 1879706570, user_id: 1005698177818, platform: "pc", display: "FoggyTugboat" },
 };
 
-// --- STATS LOGIC ---
 async function getStatsData(squadNames) {
   const url = `https://api.gametools.network/bf6/multiple/`;
   const requestBody = squadNames.map(name => {
@@ -77,7 +61,7 @@ async function sendSquadLeaderboard(channelId, squadNames) {
 
     squadData.forEach((p, i) => {
       const matchedEntry = Object.entries(SQUAD_DATABASE).find(([dbKey, info]) => {
-          return info.player_id == p.id || info.user_id == p.userId;
+        return info.player_id == p.id || info.user_id == p.userId;
       });
 
       const dbInfo = matchedEntry ? matchedEntry[1] : null;
@@ -91,8 +75,8 @@ async function sendSquadLeaderboard(channelId, squadNames) {
 
       let level = p.rank || p.level;
       if (!level && p.XP && p.XP[0]) {
-          const totalXP = p.XP[0].total;
-          level = totalXP < 650000 ? Math.floor(totalXP / 13000) : 50 + Math.floor((totalXP - 650000) / 25000);
+        const totalXP = p.XP[0].total;
+        level = totalXP < 650000 ? Math.floor(totalXP / 13000) : 50 + Math.floor((totalXP - 650000) / 25000);
       }
       const castLevel = Math.floor((Number(level || 1) / 3) + 4);
 
@@ -116,14 +100,13 @@ async function sendSquadLeaderboard(channelId, squadNames) {
   }
 }
 
-// --- HELPER: VOICE JOIN ---
 async function handleVoiceJoin(guildId, userId) {
   try {
     const guild = await client.guilds.fetch(guildId);
     const member = await guild.members.fetch(userId);
     const voiceChannel = member.voice.channel;
 
-    if (!voiceChannel) return null;
+    if (!voiceChannel) return false;
 
     console.log(`--- Attempting Connection to ${voiceChannel.name} ---`);
 
@@ -132,28 +115,10 @@ async function handleVoiceJoin(guildId, userId) {
       guildId: guild.id,
       adapterCreator: guild.voiceAdapterCreator,
       selfDeaf: false,
-      debug: true // This enables low-level discord.js logs
     });
 
-    // 1. Monitor the high-level state
     connection.on('stateChange', (oldState, newState) => {
       console.log(`📡 [STATE] ${oldState.status} -> ${newState.status}`);
-    });
-
-    // 2. Monitor the Networking/UDP layer (The most important log right now)
-    connection.on('debug', (message) => {
-      // Filter out some noise, but show us the networking bits
-      if (message.includes('networking') || message.includes('UDP')) {
-        console.log(`🔍 [NET-DEBUG] ${message}`);
-      }
-    });
-
-    // 3. Catch specific errors (Timeout, Address Discovery, etc)
-    connection.on('error', (error) => {
-      console.error(`❌ [CONNECTION ERROR] ${error.name}: ${error.message}`);
-      if (error.message.includes('UDP')) {
-        console.error("💡 CLUE: Your computer can't open a UDP path to Discord.");
-      }
     });
 
     startArgumentEngine(connection);
@@ -164,52 +129,12 @@ async function handleVoiceJoin(guildId, userId) {
   }
 }
 
-// --- EXPRESS ENDPOINT (WEBHOOKS) ---
-app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async function (req, res) {
-  const { type, data, guild_id, member } = req.body;
-
-  if (type === InteractionType.PING) {
-    return res.send({ type: InteractionResponseType.PONG });
-  }
-
-  if (type === InteractionType.APPLICATION_COMMAND) {
-    const { name } = data;
-
-    if (name === 'test') {
-      return res.send({
-        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: { content: `hello world ${getRandomEmoji()}` }
-      });
-    }
-
-    if (name === 'argue') {
-      const joined = await handleVoiceJoin(guild_id, member.user.id);
-      
-      if (!joined) {
-        return res.send({
-          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-          data: { 
-            content: "You need to be in a VC first!", 
-            flags: InteractionResponseFlags.EPHEMERAL 
-          }
-        });
-      }
-
-      return res.send({
-        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: { content: "🎙️ I'm in. Keep talking and see what happens." }
-      });
-    }
-  }
-});
-
-// --- DISCORD GATEWAY EVENTS ---
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`✅ Gateway connected! ${readyClient.user.tag} is now online.`);
-  
+
   const CHANNEL_ID = process.env.LEADERBOARD_CHANNEL_ID;
   const PLAYERS = Object.keys(SQUAD_DATABASE);
-  
+
   if (CHANNEL_ID == "67") {
     sendSquadLeaderboard(CHANNEL_ID, PLAYERS);
   }
@@ -218,32 +143,24 @@ client.once(Events.ClientReady, (readyClient) => {
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
+  if (interaction.commandName === 'argue') {
+    await interaction.deferReply();
+    const joined = await handleVoiceJoin(interaction.guildId, interaction.user.id);
+    if (!joined) {
+      return interaction.editReply("Join a VC first!");
+    }
+    await interaction.editReply("Listening");
+  }
+
   if (interaction.commandName === 'stop') {
     const connection = getVoiceConnection(interaction.guildId);
-
     if (!connection) {
-        return interaction.reply({ content: "I'm not even in a voice channel, chill.", ephemeral: true });
+      return interaction.reply({ content: "I'm not even in a voice channel, chill.", ephemeral: true });
     }
-
     connection.destroy();
-    console.log("🛑 Voice connection destroyed. Engine stopped.");
-    await interaction.reply("👋 Peace. Learn to play the game before you talk to me again.");
-}
-
-  if (interaction.commandName === 'argue') {
-    const joined = await handleVoiceJoin(interaction.guildId, interaction.user.id);
-
-    if (!joined) {
-      return interaction.reply({ content: "Join a VC first!", ephemeral: true });
-    }
-
-    await interaction.reply("🎙️ I'm in. Let's hear your 'stats'.");
+    console.log("🛑 Voice connection destroyed.");
+    await interaction.reply("Out");
   }
-});
-
-// --- START ---
-app.listen(PORT, () => {
-  console.log('Express listening on port', PORT);
 });
 
 client.login(process.env.DISCORD_TOKEN);
