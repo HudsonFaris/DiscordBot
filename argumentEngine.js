@@ -21,6 +21,8 @@ export async function startArgumentEngine(connection) {
     let isProcessing = false;
 
     receiver.speaking.on('start', (userId) => {
+        console.log(`🔔 Speaking start - isSpeaking:${isSpeaking} isProcessing:${isProcessing} activeStreams:${activeStreams.size}`);
+    if (activeStreams.has(userId) || isSpeaking || isProcessing) return;
         if (activeStreams.has(userId) || isSpeaking || isProcessing) return;
         activeStreams.add(userId);
 

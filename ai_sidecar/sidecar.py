@@ -1,6 +1,7 @@
 import io
 import wave
 import os
+import threading
 import pyttsx3
 import ollama
 from fastapi import FastAPI, UploadFile, File
@@ -11,8 +12,12 @@ app = FastAPI()
 
 model = WhisperModel("base", device="cpu", compute_type="int8")
 
-tts_engine = pyttsx3.init()
-tts_engine.setProperty('rate', 175)
+def speak_to_file(text, output_path):
+    engine = pyttsx3.init()
+    engine.setProperty('rate', 175)
+    engine.save_to_file(text, output_path)
+    engine.runAndWait()
+    engine.stop()
 
 @app.post("/process_audio")
 async def process_audio(file: UploadFile = File(...)):
@@ -38,7 +43,7 @@ async def process_audio(file: UploadFile = File(...)):
 
     print(f"User said: {user_text}")
 
-    response = ollama.chat(model='llama3', messages=[
+    response = ollama.chat(model='llama3.2:1b', messages=[
         {'role': 'system', 'content': 'You are Danny DeVito. Someone just said something to you in a Discord voice call. Argue with them using snark. Keep it short and funny. Max 2 sentences.'},
         {'role': 'user', 'content': user_text},
     ])
@@ -46,16 +51,20 @@ async def process_audio(file: UploadFile = File(...)):
     ai_response = response['message']['content']
     print(f"AI response: {ai_response}")
 
-    # Generate speech to file
-    output_path = "response.wav"
-    tts_engine.save_to_file(ai_response, output_path)
-    tts_engine.runAndWait()
-
+    output_path = os.path.join(os.path.dirname(__file__), "response.wav")
+    
+    # Run TTS in thread to prevent blocking
+    tts_thread = threading.Thread(target=speak_to_file, args=(ai_response, output_path))
+    tts_thread.start()
+    tts_thread.join(timeout=10)
+    
+    print("TTS complete")
     return {"text": user_text, "response": ai_response, "audio": True}
 
 @app.get("/get_audio")
 async def get_audio():
-    return FileResponse("response.wav", media_type="audio/wav")
+    output_path = os.path.join(os.path.dirname(__file__), "response.wav")
+    return FileResponse(output_path, media_type="audio/wav")
 
 if __name__ == "__main__":
     import uvicorn
