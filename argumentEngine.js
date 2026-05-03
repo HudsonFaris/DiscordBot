@@ -19,10 +19,41 @@ export async function startArgumentEngine(connection) {
     const activeStreams = new Set();
     let isSpeaking = false;
     let isProcessing = false;
+    const audioQueue = [];
+    let isPlayingQueue = false;
+
+    async function playQueue() {
+        if (isPlayingQueue || audioQueue.length === 0) return;
+        isPlayingQueue = true;
+        isSpeaking = true;
+
+        while (audioQueue.length > 0) {
+            const audioPath = audioQueue.shift();
+            if (!fs.existsSync(audioPath)) continue;
+
+            await new Promise((resolve) => {
+                const resource = createAudioResource(audioPath);
+                player.play(resource);
+
+                const timeout = setTimeout(() => {
+                    resolve();
+                }, 15000);
+
+                player.once(AudioPlayerStatus.Idle, () => {
+                    clearTimeout(timeout);
+                    resolve();
+                });
+            });
+        }
+
+        console.log('🔊 Finished speaking all chunks');
+        isSpeaking = false;
+        isProcessing = false;
+        isPlayingQueue = false;
+    }
 
     receiver.speaking.on('start', (userId) => {
-        console.log(`🔔 Speaking start - isSpeaking:${isSpeaking} isProcessing:${isProcessing} activeStreams:${activeStreams.size}`);
-    if (activeStreams.has(userId) || isSpeaking || isProcessing) return;
+        console.log(`🔔 Speaking start - isSpeaking:${isSpeaking} isProcessing:${isProcessing}`);
         if (activeStreams.has(userId) || isSpeaking || isProcessing) return;
         activeStreams.add(userId);
 
@@ -41,17 +72,12 @@ export async function startArgumentEngine(connection) {
             frameSize: 960
         });
 
-        decoder.on('error', () => {
-            activeStreams.delete(userId);
-        });
-
-        opusStream.on('error', () => {
-            activeStreams.delete(userId);
-        });
+        decoder.on('error', () => activeStreams.delete(userId));
+        opusStream.on('error', () => activeStreams.delete(userId));
 
         const pcmStream = opusStream.pipe(decoder);
-
         const chunks = [];
+
         pcmStream.on('data', (chunk) => {
             if (chunks.length === 0) console.log("⏳ Receiving audio chunks...");
             chunks.push(chunk);
@@ -81,48 +107,57 @@ export async function startArgumentEngine(connection) {
             });
 
             try {
-                console.log("🚀 Sending audio to Python Sidecar...");
-                const response = await axios.post('http://127.0.0.1:8000/process_audio', form, {
+                console.log("🚀 Streaming from Python Sidecar...");
+                
+                const response = await axios.post('http://127.0.0.1:8000/process_stream', form, {
                     headers: form.getHeaders(),
-                    timeout: 60000
+                    responseType: 'stream',
+                    timeout: 120000
                 });
 
-                if (response.data.text) {
-                    console.log(`\n--- ARGUMENT LOG ---`);
-                    console.log(`User: "${response.data.text}"`);
-                    console.log(`AI: "${response.data.response}"`);
-                    console.log(`--------------------\n`);
+                let headerParsed = false;
+                let buffer_data = '';
 
-                    const audioResponse = await axios.get('http://127.0.0.1:8000/get_audio', {
-                        responseType: 'arraybuffer'
-                    });
-                    
-                    const audioPath = path.join(process.cwd(), 'response.wav');
-                    fs.writeFileSync(audioPath, Buffer.from(audioResponse.data));
-                    
-                    isSpeaking = true;
-                    const resource = createAudioResource(audioPath);
-                    player.play(resource);
+                response.data.on('data', (chunk) => {
+                    buffer_data += chunk.toString();
+                    const lines = buffer_data.split('\n');
+                    buffer_data = lines.pop();
 
-                    const timeout = setTimeout(() => {
-                        console.log('🔊 Response timeout - resetting');
-                        isSpeaking = false;
+                    for (const line of lines) {
+                        if (!headerParsed && line.includes('---AUDIO---')) {
+                            headerParsed = true;
+                            // Parse header JSON
+                            const headerJson = buffer_data.split('---AUDIO---')[0];
+                            try {
+                                const parsed = JSON.parse(buffer_data.split('\n---AUDIO---')[0]);
+                                console.log(`\n--- ARGUMENT LOG ---`);
+                                console.log(`User: "${parsed.text}"`);
+                                console.log(`AI: "${parsed.response}"`);
+                                console.log(`--------------------\n`);
+                            } catch(e) {}
+                        } else if (line.startsWith('CHUNK:')) {
+                            const chunkPath = line.replace('CHUNK:', '').trim();
+                            console.log(`🎵 Queuing chunk: ${chunkPath}`);
+                            audioQueue.push(chunkPath);
+                            playQueue();
+                        }
+                    }
+                });
+
+                response.data.on('end', () => {
+                    console.log('📡 Stream ended');
+                    if (audioQueue.length === 0 && !isPlayingQueue) {
                         isProcessing = false;
-                    }, 15000);
+                    }
+                });
 
-                    player.once(AudioPlayerStatus.Idle, () => {
-                        clearTimeout(timeout);
-                        console.log('🔊 Finished speaking response');
-                        isSpeaking = false;
-                        isProcessing = false;
-                    });
-                } else {
+                response.data.on('error', (err) => {
+                    console.error('Stream error:', err.message);
                     isProcessing = false;
-                }
+                });
+
             } catch (error) {
-                console.error("❌ API Error:", error.code === 'ECONNREFUSED' 
-                    ? "Python Sidecar is NOT running!" 
-                    : error.message);
+                console.error("❌ API Error:", error.message);
                 isProcessing = false;
             }
         });
