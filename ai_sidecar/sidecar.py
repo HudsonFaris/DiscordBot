@@ -6,7 +6,7 @@ from faster_whisper import WhisperModel
 app = FastAPI()
 
 # Note: Changed to "base" for your first test to ensure it's fast
-model = WhisperModel("base", device="cuda", compute_type="float16")
+model = WhisperModel("base", device="cuda", compute_type="int8_float16")
 
 @app.post("/process_audio")
 async def process_audio(file: UploadFile = File(...)):

@@ -1,38 +1,39 @@
 import axios from 'axios';
 import FormData from 'form-data';
+import { EndBehaviorType } from '@discordjs/voice';
 
 export async function startArgumentEngine(connection) {
     const receiver = connection.receiver;
 
-    // DEBUG: Log whenever any packet is received from the voice gateway
     connection.on('stateChange', (oldState, newState) => {
         console.log(`📡 Connection state: ${oldState.status} -> ${newState.status}`);
     });
 
-// This will trigger if the bot sees ANYONE speaking at a protocol level
-    receiver.speaking.on('start', (userId) => {
-        console.log(`📣 RAW PROTOCOL: User ${userId} started speaking`);
-    });
-
     console.log("👂 Engine is live. Waiting for someone to speak...");
 
+    const activeStreams = new Set();
+
     receiver.speaking.on('start', (userId) => {
-        // LOG 1: Audio detection
+        if (activeStreams.has(userId)) return;
+        activeStreams.add(userId);
+
         console.log(`🎤 Detected voice activity from user: ${userId}`);
 
         const audioStream = receiver.subscribe(userId, {
-            mode: 'pcm',
+            end: {
+                behavior: EndBehaviorType.AfterSilence,
+                duration: 1000,
+            },
         });
 
         const chunks = [];
         audioStream.on('data', (chunk) => {
-            // LOG 2: Data flowing
-            // Only log this once per "sentence" to avoid spam
             if (chunks.length === 0) console.log("⏳ Receiving audio chunks...");
             chunks.push(chunk);
         });
 
         audioStream.on('end', async () => {
+            activeStreams.delete(userId);
             console.log(`✅ Audio stream ended. Captured ${chunks.length} chunks.`);
             
             if (chunks.length < 5) {
@@ -41,7 +42,6 @@ export async function startArgumentEngine(connection) {
             }
 
             const buffer = Buffer.concat(chunks);
-
             const form = new FormData();
             form.append('file', buffer, {
                 filename: 'voice.raw',
@@ -49,10 +49,10 @@ export async function startArgumentEngine(connection) {
             });
 
             try {
-                console.log("🚀 Sending audio to Python Sidecar (Port 8000)...");
+                console.log("🚀 Sending audio to Python Sidecar...");
                 const response = await axios.post('http://127.0.0.1:8000/process_audio', form, {
                     headers: form.getHeaders(),
-                    timeout: 10000 // 10 second timeout
+                    timeout: 30000
                 });
 
                 if (response.data.text) {
@@ -63,7 +63,7 @@ export async function startArgumentEngine(connection) {
                 }
             } catch (error) {
                 console.error("❌ API Error:", error.code === 'ECONNREFUSED' 
-                    ? "Python Sidecar is NOT running on port 8000!" 
+                    ? "Python Sidecar is NOT running!" 
                     : error.message);
             }
         });

@@ -3,3 +3,4 @@ uvicorn
 faster-whisper
 ollama
 torch
+multipart
