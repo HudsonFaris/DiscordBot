@@ -17,9 +17,11 @@ export async function startArgumentEngine(connection) {
     console.log("👂 Engine is live. Waiting for someone to speak...");
 
     const activeStreams = new Set();
+    let isSpeaking = false;
+    let isProcessing = false;
 
     receiver.speaking.on('start', (userId) => {
-        if (activeStreams.has(userId)) return;
+        if (activeStreams.has(userId) || isSpeaking || isProcessing) return;
         activeStreams.add(userId);
 
         console.log(`🎤 Detected voice activity from user: ${userId}`);
@@ -37,12 +39,11 @@ export async function startArgumentEngine(connection) {
             frameSize: 960
         });
 
-        decoder.on('error', (err) => {
-            console.error('Decoder error (ignored):', err.message);
+        decoder.on('error', () => {
+            activeStreams.delete(userId);
         });
 
-        opusStream.on('error', (err) => {
-            console.error('Opus stream error:', err.message);
+        opusStream.on('error', () => {
             activeStreams.delete(userId);
         });
 
@@ -58,10 +59,17 @@ export async function startArgumentEngine(connection) {
             activeStreams.delete(userId);
             console.log(`✅ Audio stream ended. Captured ${chunks.length} chunks.`);
             
-            if (chunks.length < 5) {
+            if (chunks.length < 10) {
                 console.log("⚠️ Audio too short, skipping...");
                 return;
             }
+
+            if (isProcessing) {
+                console.log("⏭️ Already processing, skipping...");
+                return;
+            }
+
+            isProcessing = true;
 
             const buffer = Buffer.concat(chunks);
             const form = new FormData();
@@ -83,7 +91,6 @@ export async function startArgumentEngine(connection) {
                     console.log(`AI: "${response.data.response}"`);
                     console.log(`--------------------\n`);
 
-                    // Download and play audio response
                     const audioResponse = await axios.get('http://127.0.0.1:8000/get_audio', {
                         responseType: 'arraybuffer'
                     });
@@ -91,17 +98,30 @@ export async function startArgumentEngine(connection) {
                     const audioPath = path.join(process.cwd(), 'response.wav');
                     fs.writeFileSync(audioPath, Buffer.from(audioResponse.data));
                     
+                    isSpeaking = true;
                     const resource = createAudioResource(audioPath);
                     player.play(resource);
-                    
+
+                    const timeout = setTimeout(() => {
+                        console.log('🔊 Response timeout - resetting');
+                        isSpeaking = false;
+                        isProcessing = false;
+                    }, 15000);
+
                     player.once(AudioPlayerStatus.Idle, () => {
+                        clearTimeout(timeout);
                         console.log('🔊 Finished speaking response');
+                        isSpeaking = false;
+                        isProcessing = false;
                     });
+                } else {
+                    isProcessing = false;
                 }
             } catch (error) {
                 console.error("❌ API Error:", error.code === 'ECONNREFUSED' 
                     ? "Python Sidecar is NOT running!" 
                     : error.message);
+                isProcessing = false;
             }
         });
     });
