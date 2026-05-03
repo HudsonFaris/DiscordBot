@@ -48,7 +48,7 @@ async def process_audio(file: UploadFile = File(...)):
     print(f"User said: {user_text}")
 
     response = ollama.chat(model='llama3.2:1b', messages=[
-        {'role': 'system', 'content': 'You are Danny DeVito. Argue back in ONE short sentence. Be snarky and act like a frat boy. But be logical.'},
+        {'role': 'system', 'content': 'You are Danny DeVito. Argue back in ONE short sentence or 15 words MAX. Be snarky and act like a frat boy. But be logical.'},
         {'role': 'user', 'content': user_text},
     ])
 
