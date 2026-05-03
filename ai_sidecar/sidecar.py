@@ -2,22 +2,26 @@ import io
 import wave
 import os
 import threading
-import pyttsx3
 import ollama
+import torch
+from chatterbox.tts import ChatterboxTTS
 from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import FileResponse
 from faster_whisper import WhisperModel
 
 app = FastAPI()
 
-model = WhisperModel("base", device="cpu", compute_type="int8")
+# Load models on startup
+print("Loading Whisper...")
+whisper_model = WhisperModel("base", device="cuda", compute_type="float16")
 
-def speak_to_file(text, output_path):
-    engine = pyttsx3.init()
-    engine.setProperty('rate', 175)
-    engine.save_to_file(text, output_path)
-    engine.runAndWait()
-    engine.stop()
+print("Loading Chatterbox...")
+tts_model = ChatterboxTTS.from_pretrained(device="cuda")
+
+VOICE_SAMPLE = os.path.join(os.path.dirname(__file__), "my_voice.wav")
+OUTPUT_PATH = os.path.join(os.path.dirname(__file__), "response.wav")
+
+print("All models loaded!")
 
 @app.post("/process_audio")
 async def process_audio(file: UploadFile = File(...)):
@@ -32,7 +36,7 @@ async def process_audio(file: UploadFile = File(...)):
         wav_file.writeframes(audio_bytes)
     wav_buffer.seek(0)
 
-    segments, info = model.transcribe(wav_buffer, beam_size=5)
+    segments, info = whisper_model.transcribe(wav_buffer, beam_size=5)
     print(f"Detected language: {info.language} with probability {info.language_probability}")
     user_text = "".join([s.text for s in segments])
     print(f"Transcribed: '{user_text}'")
@@ -51,20 +55,23 @@ async def process_audio(file: UploadFile = File(...)):
     ai_response = response['message']['content']
     print(f"AI response: {ai_response}")
 
-    output_path = os.path.join(os.path.dirname(__file__), "response.wav")
+    # Generate speech with your cloned voice
+    wav_tensor = tts_model.generate(
+        ai_response,
+        audio_prompt_path=VOICE_SAMPLE,
+        exaggeration=0.5,
+        cfg_weight=0.5,
+    )
     
-    # Run TTS in thread to prevent blocking
-    tts_thread = threading.Thread(target=speak_to_file, args=(ai_response, output_path))
-    tts_thread.start()
-    tts_thread.join(timeout=10)
-    
+    import torchaudio
+    torchaudio.save(OUTPUT_PATH, wav_tensor, tts_model.sr)
     print("TTS complete")
+
     return {"text": user_text, "response": ai_response, "audio": True}
 
 @app.get("/get_audio")
 async def get_audio():
-    output_path = os.path.join(os.path.dirname(__file__), "response.wav")
-    return FileResponse(output_path, media_type="audio/wav")
+    return FileResponse(OUTPUT_PATH, media_type="audio/wav")
 
 if __name__ == "__main__":
     import uvicorn
