@@ -1,6 +1,7 @@
 import axios from 'axios';
 import FormData from 'form-data';
 import { EndBehaviorType } from '@discordjs/voice';
+import prism from 'prism-media';
 
 export async function startArgumentEngine(connection) {
     const receiver = connection.receiver;
@@ -19,20 +20,38 @@ export async function startArgumentEngine(connection) {
 
         console.log(`🎤 Detected voice activity from user: ${userId}`);
 
-        const audioStream = receiver.subscribe(userId, {
+        const opusStream = receiver.subscribe(userId, {
             end: {
                 behavior: EndBehaviorType.AfterSilence,
                 duration: 1000,
             },
         });
 
+        const decoder = new prism.opus.Decoder({
+            rate: 48000,
+            channels: 2,
+            frameSize: 960
+        });
+
+        // Handle decoder errors without crashing
+        decoder.on('error', (err) => {
+            console.error('Decoder error (ignored):', err.message);
+        });
+
+        opusStream.on('error', (err) => {
+            console.error('Opus stream error:', err.message);
+            activeStreams.delete(userId);
+        });
+
+        const pcmStream = opusStream.pipe(decoder);
+
         const chunks = [];
-        audioStream.on('data', (chunk) => {
+        pcmStream.on('data', (chunk) => {
             if (chunks.length === 0) console.log("⏳ Receiving audio chunks...");
             chunks.push(chunk);
         });
 
-        audioStream.on('end', async () => {
+        pcmStream.on('end', async () => {
             activeStreams.delete(userId);
             console.log(`✅ Audio stream ended. Captured ${chunks.length} chunks.`);
             
