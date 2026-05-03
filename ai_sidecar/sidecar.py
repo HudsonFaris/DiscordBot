@@ -13,7 +13,7 @@ app = FastAPI()
 
 # Load models on startup
 print("Loading Whisper...")
-whisper_model = WhisperModel("base", device="cuda", compute_type="float16")
+whisper_model = WhisperModel("tiny", device="cuda", compute_type="float16")
 
 print("Loading Chatterbox...")
 tts_model = ChatterboxTTS.from_pretrained(device="cuda")
@@ -48,7 +48,7 @@ async def process_audio(file: UploadFile = File(...)):
     print(f"User said: {user_text}")
 
     response = ollama.chat(model='llama3.2:1b', messages=[
-        {'role': 'system', 'content': 'You are Danny DeVito. Someone just said something to you in a Discord voice call. Argue with them using snark. Keep it short and funny. Max 2 sentences.'},
+        {'role': 'system', 'content': 'You are Danny DeVito. Argue back in ONE short sentence. Be snarky and act like a frat boy. But be logical.'},
         {'role': 'user', 'content': user_text},
     ])
 
@@ -59,8 +59,8 @@ async def process_audio(file: UploadFile = File(...)):
     wav_tensor = tts_model.generate(
         ai_response,
         audio_prompt_path=VOICE_SAMPLE,
-        exaggeration=0.5,
-        cfg_weight=0.5,
+        exaggeration=0.3,
+        cfg_weight=0.1,
     )
     
     import torchaudio
