@@ -1,10 +1,14 @@
 import axios from 'axios';
 import FormData from 'form-data';
-import { EndBehaviorType } from '@discordjs/voice';
+import { EndBehaviorType, createAudioResource, createAudioPlayer, AudioPlayerStatus } from '@discordjs/voice';
 import prism from 'prism-media';
+import fs from 'fs';
+import path from 'path';
 
 export async function startArgumentEngine(connection) {
     const receiver = connection.receiver;
+    const player = createAudioPlayer();
+    connection.subscribe(player);
 
     connection.on('stateChange', (oldState, newState) => {
         console.log(`📡 Connection state: ${oldState.status} -> ${newState.status}`);
@@ -33,7 +37,6 @@ export async function startArgumentEngine(connection) {
             frameSize: 960
         });
 
-        // Handle decoder errors without crashing
         decoder.on('error', (err) => {
             console.error('Decoder error (ignored):', err.message);
         });
@@ -71,7 +74,7 @@ export async function startArgumentEngine(connection) {
                 console.log("🚀 Sending audio to Python Sidecar...");
                 const response = await axios.post('http://127.0.0.1:8000/process_audio', form, {
                     headers: form.getHeaders(),
-                    timeout: 30000
+                    timeout: 60000
                 });
 
                 if (response.data.text) {
@@ -79,6 +82,21 @@ export async function startArgumentEngine(connection) {
                     console.log(`User: "${response.data.text}"`);
                     console.log(`AI: "${response.data.response}"`);
                     console.log(`--------------------\n`);
+
+                    // Download and play audio response
+                    const audioResponse = await axios.get('http://127.0.0.1:8000/get_audio', {
+                        responseType: 'arraybuffer'
+                    });
+                    
+                    const audioPath = path.join(process.cwd(), 'response.wav');
+                    fs.writeFileSync(audioPath, Buffer.from(audioResponse.data));
+                    
+                    const resource = createAudioResource(audioPath);
+                    player.play(resource);
+                    
+                    player.once(AudioPlayerStatus.Idle, () => {
+                        console.log('🔊 Finished speaking response');
+                    });
                 }
             } catch (error) {
                 console.error("❌ API Error:", error.code === 'ECONNREFUSED' 

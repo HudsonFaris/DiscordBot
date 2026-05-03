@@ -1,19 +1,24 @@
 import io
 import wave
+import os
+import pyttsx3
 import ollama
 from fastapi import FastAPI, UploadFile, File
+from fastapi.responses import FileResponse
 from faster_whisper import WhisperModel
 
 app = FastAPI()
 
 model = WhisperModel("base", device="cpu", compute_type="int8")
 
+tts_engine = pyttsx3.init()
+tts_engine.setProperty('rate', 175)
+
 @app.post("/process_audio")
 async def process_audio(file: UploadFile = File(...)):
     audio_bytes = await file.read()
     print(f"Received {len(audio_bytes)} bytes of audio")
     
-    # Convert raw PCM to WAV
     wav_buffer = io.BytesIO()
     with wave.open(wav_buffer, 'wb') as wav_file:
         wav_file.setnchannels(2)
@@ -34,14 +39,23 @@ async def process_audio(file: UploadFile = File(...)):
     print(f"User said: {user_text}")
 
     response = ollama.chat(model='llama3', messages=[
-        {'role': 'system', 'content': 'You are Danny DeVito. Someone just said something to you in a Discord voice call. Argue with them using snark. Keep it short and funny.'},
+        {'role': 'system', 'content': 'You are Danny DeVito. Someone just said something to you in a Discord voice call. Argue with them using snark. Keep it short and funny. Max 2 sentences.'},
         {'role': 'user', 'content': user_text},
     ])
 
     ai_response = response['message']['content']
     print(f"AI response: {ai_response}")
 
-    return {"text": user_text, "response": ai_response}
+    # Generate speech to file
+    output_path = "response.wav"
+    tts_engine.save_to_file(ai_response, output_path)
+    tts_engine.runAndWait()
+
+    return {"text": user_text, "response": ai_response, "audio": True}
+
+@app.get("/get_audio")
+async def get_audio():
+    return FileResponse("response.wav", media_type="audio/wav")
 
 if __name__ == "__main__":
     import uvicorn
