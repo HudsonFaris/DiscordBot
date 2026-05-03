@@ -4,6 +4,9 @@ import { EmbedBuilder, Client, GatewayIntentBits, Events } from 'discord.js';
 import { joinVoiceChannel, getVoiceConnection, VoiceConnectionStatus } from '@discordjs/voice';
 import { startArgumentEngine } from './argumentEngine.js';
 
+import { setDefaultAutoSelectFamily } from 'node:net';
+setDefaultAutoSelectFamily(false);
+
 const client = new Client({ 
   intents: [
     GatewayIntentBits.Guilds,
