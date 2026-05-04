@@ -14,7 +14,7 @@ from faster_whisper import WhisperModel
 app = FastAPI()
 
 print("Loading Whisper...")
-whisper_model = WhisperModel("tiny", device="cuda", compute_type="float16")
+whisper_model = WhisperModel("small", device="cuda", compute_type="float16")
 
 print("Loading Chatterbox...")
 tts_model = ChatterboxTTS.from_pretrained(device="cuda")
