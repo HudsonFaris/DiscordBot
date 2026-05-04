@@ -179,6 +179,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     await sendSquadLeaderboard(CHANNEL_ID, PLAYERS);
     await interaction.editReply("Leaderboard sent!");
   }
+  
 });
 
 

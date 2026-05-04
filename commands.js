@@ -58,12 +58,12 @@ const stopCommand = {
   type: 1,
 };
 
-const leaderboardds = {
+const leaderboards = {
   name: 'leaderboard',
   description: 'Shows the leaderboard of wins and losses',
   type: 1,
 }
 
-const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND, argueCommand, stopCommand, leaderboardds];
+const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND, argueCommand, stopCommand, leaderboards];
 
 InstallGlobalCommands(process.env.APP_ID, ALL_COMMANDS);
