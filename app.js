@@ -171,7 +171,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
     console.log("🛑 Voice connection destroyed.");
     await interaction.reply("Out");
   }
+
+  if (interaction.commandName === 'leaderboard') {
+    await interaction.deferReply();
+    const CHANNEL_ID = process.env.LEADERBOARD_CHANNEL_ID;
+    const PLAYERS = Object.keys(SQUAD_DATABASE);
+    await sendSquadLeaderboard(CHANNEL_ID, PLAYERS);
+    await interaction.editReply("Leaderboard sent!");
+  }
 });
+
 
 client.login(process.env.DISCORD_TOKEN);
 
