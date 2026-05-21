@@ -24,6 +24,7 @@ OUTPUT_DIR = os.path.dirname(__file__)
 
 print("All models loaded!")
 
+#check python here prob
 def split_sentences(text):
     return [s.strip() for s in re.split(r'(?<=[.!?])\s+', text) if s.strip()]
 
