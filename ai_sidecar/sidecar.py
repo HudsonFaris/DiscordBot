@@ -66,6 +66,7 @@ async def process_audio(file: UploadFile = File(...)):
             cfg_weight=0.1,
         )
         tensors.append(wav_tensor)
+        #tenor append issue with overlapping voices
 
     silence = torch.zeros(1, int(tts_model.sr * 0.15))
     combined = torch.cat([t for pair in zip(tensors, [silence]*len(tensors)) for t in pair], dim=1)
