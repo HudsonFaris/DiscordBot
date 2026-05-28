@@ -74,6 +74,7 @@ async def process_audio(file: UploadFile = File(...)):
     output_path = os.path.join(OUTPUT_DIR, "response.wav")
     torchaudio.save(output_path, combined, tts_model.sr)
     print("TTS complete")
+    #derog
 
     return {"text": user_text, "response": ai_response, "audio": True}
 
