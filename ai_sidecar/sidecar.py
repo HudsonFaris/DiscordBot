@@ -81,6 +81,8 @@ async def process_audio(file: UploadFile = File(...)):
 @app.post("/process_stream")
 async def process_stream(file: UploadFile = File(...)):
     audio_bytes = await file.read()
+
+    #This wait is causing the issues with the stream, need to find a way to process the audio as it comes in instead of waiting for the whole file
     
     wav_buffer = io.BytesIO()
     with wave.open(wav_buffer, 'wb') as wav_file:
