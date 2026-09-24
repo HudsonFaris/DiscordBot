@@ -53,7 +53,7 @@ client.on('interactionCreate', async (interaction) => {
         });
 
         startRecording(connection, interaction.guild);
-        await interaction.editReply(`Started recording in ${voiceChannel.name}.`);
+        await interaction.editReply(`Hello... ${voiceChannel.name}.`);
       } catch (err) {
         console.error('Error starting recording:', err);
         await interaction.editReply('Failed to join the voice channel and start recording.');
@@ -84,7 +84,7 @@ client.on('interactionCreate', async (interaction) => {
       await stopRecording(connection, finalChannel);
 
       connection.destroy();
-      await interaction.editReply(`Stopped recording. Files sent to <#${finalChannel.id}>.`);
+      await interaction.editReply(`Goodbye. <#${finalChannel.id}>.`);
     }
   }
 });
