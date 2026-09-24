@@ -1,4 +1,4 @@
-\import { EndBehaviorType } from '@discordjs/voice';
+import { EndBehaviorType } from '@discordjs/voice';
 import prism from 'prism-media';
 import fs from 'fs';
 import path from 'path';
@@ -62,7 +62,6 @@ export async function stopRecording(connection) {
         activeStreams.delete(userId);
     }
 
-    // Brief delay to ensure file streams flush to disk
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     const recordingDir = path.join(process.cwd(), 'recordings');
