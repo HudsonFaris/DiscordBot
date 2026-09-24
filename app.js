@@ -177,10 +177,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 
   if (interaction.commandName === 'record') {
-    // Acknowledge interaction immediately so Discord doesn't time out
     await interaction.deferReply();
 
-    const subcommand = interaction.options.getSubcommand();
+    // Passing false prevents a thrown exception if no subcommand was attached
+    const subcommand = interaction.options.getSubcommand(false);
+
+    if (!subcommand) {
+      return interaction.editReply('Please specify a subcommand: `/record start` or `/record stop`.');
+    }
+
     const voiceChannel = interaction.member.voice.channel;
 
     if (subcommand === 'start') {

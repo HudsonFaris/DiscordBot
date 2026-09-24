@@ -4,21 +4,21 @@ import { capitalize, InstallGlobalCommands } from './utils.js';
 
 const recordCommand = {
   name: 'record',
-  description: 'Record voice channel audio',
-  type: 1,
+  description: 'Manage audio recording in voice channels',
   options: [
     {
-      type: 3,
-      name: 'action',
-      description: 'start or stop recording',
-      required: true,
-      choices: [
-        { name: 'start', value: 'start' },
-        { name: 'stop', value: 'stop' }
-      ]
-    }
-  ]
+      name: 'start',
+      description: 'Start recording audio in your current voice channel',
+      type: 1, // 1 = SUB_COMMAND
+    },
+    {
+      name: 'stop',
+      description: 'Stop recording audio and export files',
+      type: 1, // 1 = SUB_COMMAND
+    },
+  ],
 };
+
 
 // Get the game choices from game.js
 function createCommandChoices() {
