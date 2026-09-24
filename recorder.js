@@ -52,54 +52,48 @@ export function startRecording(connection, guild) {
     });
 }
 
-export async function stopRecording(connection, channel) {
+export async function stopRecording(connection, targetChannel) {
     console.log('Stopping recording...');
     
-    // Close all active streams
     for (const [userId, data] of recordings.entries()) {
-        data.fileStream.end();
+        if (data.fileStream) data.fileStream.end();
         recordings.delete(userId);
     }
 
-    // Find all PCM files
     const recordingDir = path.join(process.cwd(), 'recordings');
-    if (!fs.existsSync(recordingDir)) {
-        await channel.send('No audio was recorded.');
-        return;
-    }
+    if (!fs.existsSync(recordingDir)) return [];
 
     const files = fs.readdirSync(recordingDir).filter(f => f.endsWith('.pcm'));
+    if (files.length === 0) return [];
 
-    if (files.length === 0) {
-        await channel.send('No audio was recorded.');
-        return;
-    }
+    const filesToSend = [];
 
-    // Convert each PCM to WAV and send
     for (const file of files) {
         const pcmPath = path.join(recordingDir, file);
         const wavPath = pcmPath.replace('.pcm', '.wav');
         
-        // Write WAV header
         const pcmData = fs.readFileSync(pcmPath);
         const wavBuffer = pcmToWav(pcmData, 48000, 2, 16);
         fs.writeFileSync(wavPath, wavBuffer);
 
         const userId = file.split('_')[0];
         
-        try {
-            await channel.send({
-                content: `Recording for <@${userId}>`,
-                files: [{ attachment: wavPath, name: `recording_${userId}.wav` }]
-            });
-            console.log(`Sent recording for ${userId}`);
-        } catch (err) {
-            console.error(`Failed to send recording for ${userId}:`, err.message);
-        }
+        filesToSend.push({
+            attachment: wavPath,
+            name: `recording_${userId}.wav`,
+            pcmPath,
+            wavPath,
+            userId
+        });
+    }
 
-        // Cleanup files
-        if (fs.existsSync(pcmPath)) fs.unlinkSync(pcmPath);
-        if (fs.existsSync(wavPath)) fs.unlinkSync(wavPath);
+    return filesToSend;
+}
+
+export function cleanupFiles(filesToSend) {
+    for (const file of filesToSend) {
+        if (fs.existsSync(file.pcmPath)) fs.unlinkSync(file.pcmPath);
+        if (fs.existsSync(file.wavPath)) fs.unlinkSync(file.wavPath);
     }
 }
 

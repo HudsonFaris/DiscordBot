@@ -1,7 +1,7 @@
 import { Client, GatewayIntentBits } from 'discord.js';
 import { joinVoiceChannel, getVoiceConnection } from '@discordjs/voice';
 import dotenv from 'dotenv';
-import { startRecording, stopRecording } from './recorder.js';
+import { startRecording, stopRecording, cleanupFiles } from './recorder.js';
 
 dotenv.config();
 
@@ -21,13 +21,12 @@ client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
   if (interaction.commandName === 'record') {
-    // Safely attempt to defer the reply
     try {
       if (!interaction.deferred && !interaction.replied) {
         await interaction.deferReply();
       }
     } catch (err) {
-      console.error('Failed to defer interaction (token expired or handled elsewhere):', err.message);
+      console.error('Failed to defer interaction:', err.message);
       return;
     }
 
@@ -56,15 +55,15 @@ client.on('interactionCreate', async (interaction) => {
         await interaction.editReply(`Hello... ${voiceChannel.name}.`);
       } catch (err) {
         console.error('Error starting recording:', err);
-        await interaction.editReply('Failed to join the voice channel and start recording.');
+        await interaction.editReply('Failed to join the voice.');
       }
     }
 
     if (subcommand === 'stop') {
-      const connection = getVoiceConnection(interaction.guild.id);
+      let connection = getVoiceConnection(interaction.guild.id);
 
       if (!connection) {
-        return interaction.editReply('Not currently recording in any voice channel.');
+        return interaction.editReply('Not currently.');
       }
 
       const targetChannelId = process.env.RECORDINGS_CHANNEL_ID?.trim();
@@ -80,11 +79,27 @@ client.on('interactionCreate', async (interaction) => {
       }
 
       const finalChannel = targetChannel || interaction.channel;
-
-      await stopRecording(connection, finalChannel);
+      const filesToSend = await stopRecording(connection, finalChannel);
 
       connection.destroy();
-      await interaction.editReply(`Goodbye. <#${finalChannel.id}>.`);
+
+      if (filesToSend.length === 0) {
+        await interaction.editReply('Stopped.');
+        return;
+      }
+
+      try {
+        await finalChannel.send({
+          content: 'Stopped recording. Here are the files:',
+          files: filesToSend.map(f => ({ attachment: f.wavPath, name: f.name }))
+        });
+        await interaction.editReply(`Goodbye.`);
+      } catch (err) {
+        console.error('Failed to send files:', err.message);
+        await interaction.editReply('Stopped x2.');
+      } finally {
+        cleanupFiles(filesToSend);
+      }
     }
   }
 });
