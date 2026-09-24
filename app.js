@@ -3,6 +3,8 @@ import axios from 'axios';
 import { EmbedBuilder, Client, GatewayIntentBits, Events } from 'discord.js';
 import { joinVoiceChannel, getVoiceConnection } from '@discordjs/voice';
 import { startArgumentEngine } from './argumentEngine.js';
+import { startRecording, stopRecording } from './recorder.js';
+
 
 const client = new Client({ 
   intents: [
@@ -156,7 +158,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     await interaction.editReply("In.");
   }
 
-  if (interaction.commandName === 'stop') {
+    if (interaction.commandName === 'stop') {
     const connection = getVoiceConnection(interaction.guildId);
     if (!connection) {
       return interaction.reply({ content: "I'm not even in a voice channel, chill.", ephemeral: true });
@@ -164,6 +166,41 @@ client.on(Events.InteractionCreate, async (interaction) => {
     connection.destroy();
     console.log("🛑 Voice connection destroyed.");
     await interaction.reply("Out.");
+  }
+
+  if (interaction.commandName === 'leaderboard') {
+    await interaction.deferReply();
+    const CHANNEL_ID = process.env.LEADERBOARD_CHANNEL_ID;
+    const PLAYERS = Object.keys(SQUAD_DATABASE);
+    await sendSquadLeaderboard(CHANNEL_ID, PLAYERS);
+    await interaction.editReply("Leaderboard sent!");
+  }
+
+  if (interaction.commandName === 'record') {
+    const subcommand = interaction.options.getString('action');
+    const connection = getVoiceConnection(interaction.guildId);
+
+    if (subcommand === 'start') {
+      await interaction.deferReply();
+      if (connection) {
+        startRecording(connection, interaction.guild);
+        await interaction.editReply('🔴 Recording started!');
+      } else {
+        const joined = await handleVoiceJoin(interaction.guildId, interaction.user.id);
+        if (!joined) return interaction.editReply('Join a VC first!');
+        const conn = getVoiceConnection(interaction.guildId);
+        startRecording(conn, interaction.guild);
+        await interaction.editReply('🔴 Recording started!');
+      }
+    }
+
+    if (subcommand === 'stop') {
+      if (!connection) return interaction.reply({ content: 'Not recording anything.', ephemeral: true });
+      await interaction.deferReply();
+      await stopRecording(connection, interaction.channel);
+      connection.destroy();
+      await interaction.editReply('⏹️ Done! Files sent above.');
+    }
   }
 });
 

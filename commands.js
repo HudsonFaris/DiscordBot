@@ -2,6 +2,24 @@ import 'dotenv/config';
 import { getRPSChoices } from './game.js';
 import { capitalize, InstallGlobalCommands } from './utils.js';
 
+const recordCommand = {
+  name: 'record',
+  description: 'Record voice channel audio',
+  type: 1,
+  options: [
+    {
+      type: 3,
+      name: 'action',
+      description: 'start or stop recording',
+      required: true,
+      choices: [
+        { name: 'start', value: 'start' },
+        { name: 'stop', value: 'stop' }
+      ]
+    }
+  ]
+};
+
 // Get the game choices from game.js
 function createCommandChoices() {
   const choices = getRPSChoices();
@@ -58,6 +76,6 @@ const stopCommand = {
   type: 1,
 };
 
-const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND, argueCommand, stopCommand];
+const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND, recordCommand, argueCommand, stopCommand];
 
 InstallGlobalCommands(process.env.APP_ID, ALL_COMMANDS);
