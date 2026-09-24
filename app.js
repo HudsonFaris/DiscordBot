@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits } from 'discord.js';
+import { Client, GatewayIntentBits, Events } from 'discord.js';
 import { joinVoiceChannel, getVoiceConnection, VoiceConnectionStatus, entersState } from '@discordjs/voice';
 import dotenv from 'dotenv';
 import { startRecording, stopRecording, cleanupFiles } from './recorder.js';
@@ -13,11 +13,11 @@ const client = new Client({
   ],
 });
 
-client.once('clientReady', () => {
-  console.log(`Gateway connected! ${client.user.tag} is now online.`);
+client.once(Events.ClientReady, (readyClient) => {
+  console.log(` Gateway connected! ${readyClient.user.tag} is now online.`);
 });
 
-client.on('interactionCreate', async (interaction) => {
+client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
   // IMMEDIATELY defer to acknowledge Discord within the 3-second limit
@@ -90,7 +90,9 @@ client.on('interactionCreate', async (interaction) => {
       const finalChannel = targetChannel || interaction.channel;
       const filesToSend = await stopRecording(connection);
 
-      connection.destroy();
+      if (connection.state.status !== VoiceConnectionStatus.Destroyed) {
+        connection.destroy();
+      }
 
       if (!filesToSend || filesToSend.length === 0) {
         await interaction.editReply('Stopped.');
