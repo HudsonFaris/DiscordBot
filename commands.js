@@ -1,81 +1,40 @@
-import 'dotenv/config';
-import { getRPSChoices } from './game.js';
-import { capitalize, InstallGlobalCommands } from './utils.js';
+import { REST, Routes } from 'discord.js';
+import dotenv from 'dotenv';
 
-const recordCommand = {
-  name: 'record',
-  description: 'Manage audio recording in voice channels',
-  options: [
-    {
-      name: 'start',
-      description: 'Start recording audio in your current voice channel',
-      type: 1, // 1 = SUB_COMMAND
-    },
-    {
-      name: 'stop',
-      description: 'Stop recording audio and export files',
-      type: 1, // 1 = SUB_COMMAND
-    },
-  ],
-};
+dotenv.config();
 
+const commands = [
+  {
+    name: 'record',
+    description: 'Manage audio recording in voice channels',
+    options: [
+      {
+        name: 'start',
+        description: 'Hey there....',
+        type: 1, // SUB_COMMAND
+      },
+      {
+        name: 'stop',
+        description: 'Goodbye....',
+        type: 1, // SUB_COMMAND
+      },
+    ],
+  },
+];
 
-// Get the game choices from game.js
-function createCommandChoices() {
-  const choices = getRPSChoices();
-  const commandChoices = [];
+const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 
-  for (let choice of choices) {
-    commandChoices.push({
-      name: capitalize(choice),
-      value: choice.toLowerCase(),
-    });
+(async () => {
+  try {
+    console.log('Started refreshing application (/) commands.');
+
+    await rest.put(
+      Routes.applicationCommands(process.env.CLIENT_ID),
+      { body: commands }
+    );
+
+    console.log('Successfully reloaded application (/) commands.');
+  } catch (error) {
+    console.error(error);
   }
-
-  return commandChoices;
-}
-
-// Simple test command
-const TEST_COMMAND = {
-  name: 'test',
-  description: 'Basic command',
-  type: 1,
-  integration_types: [0, 1],
-  contexts: [0, 1, 2],
-};
-
-// Command containing options
-const CHALLENGE_COMMAND = {
-  name: 'challenge',
-  description: 'Challenge to a match of rock paper scissors',
-  options: [
-    {
-      type: 3,
-      name: 'object',
-      description: 'Pick your object',
-      required: true,
-      choices: createCommandChoices(),
-    },
-  ],
-  type: 1,
-  integration_types: [0, 1],
-  contexts: [0, 2],
-};
-
-const argueCommand = {
-  name: 'argue',
-  description: 'Starts the AI arguing engine in your current VC',
-  type: 1,
-  integration_types: [0, 1],
-  contexts: [0], // Voice only works in Servers (Context 0)
-};
-
-const stopCommand = {
-  name: 'stop',
-  description: 'Stops the AI arguing engine and kicks the bot from VC',
-  type: 1,
-};
-
-const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND, recordCommand, argueCommand, stopCommand];
-
-InstallGlobalCommands(process.env.APP_ID, ALL_COMMANDS);
+})();
