@@ -1,26 +1,28 @@
-import { EndBehaviorType } from '@discordjs/voice';
+\import { EndBehaviorType } from '@discordjs/voice';
 import prism from 'prism-media';
 import fs from 'fs';
 import path from 'path';
 
-const recordings = new Map();
+const activeStreams = new Map();
 
 export function startRecording(connection, guild) {
     const receiver = connection.receiver;
     const recordingDir = path.join(process.cwd(), 'recordings');
-    
+
     if (!fs.existsSync(recordingDir)) {
-        fs.mkdirSync(recordingDir);
+        fs.mkdirSync(recordingDir, { recursive: true });
     }
 
-    console.log('Recording started');
+    console.log('Recording started listener attached');
 
     receiver.speaking.on('start', (userId) => {
-        if (recordings.has(userId)) return;
+        if (activeStreams.has(userId)) return;
 
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const filePath = path.join(recordingDir, `${userId}_${timestamp}.pcm`);
-        
+
+        console.log(`User ${userId} started speaking, subscribing...`);
+
         const opusStream = receiver.subscribe(userId, {
             end: {
                 behavior: EndBehaviorType.AfterSilence,
@@ -35,30 +37,33 @@ export function startRecording(connection, guild) {
         });
 
         decoder.on('error', (err) => {
-            console.error('Decoder error:', err.message);
+            console.error(`Decoder error for user ${userId}:`, err.message);
         });
 
-        const fileStream = fs.createWriteStream(filePath);
-        const pcmStream = opusStream.pipe(decoder);
-        pcmStream.pipe(fileStream);
+        const fileStream = fs.createWriteStream(filePath, { flags: 'a' });
+        opusStream.pipe(decoder).pipe(fileStream);
 
-        recordings.set(userId, { filePath, fileStream, pcmStream });
-        console.log(`Recording user ${userId}`);
+        activeStreams.set(userId, { filePath, fileStream, opusStream });
 
-        pcmStream.on('end', () => {
-            recordings.delete(userId);
-            console.log(`Saved segment for ${userId}`);
+        opusStream.on('end', () => {
+            console.log(`Finished audio segment for user ${userId}`);
+            fileStream.end();
+            activeStreams.delete(userId);
         });
     });
 }
 
-export async function stopRecording(connection, targetChannel) {
+export async function stopRecording(connection) {
     console.log('Stopping recording...');
-    
-    for (const [userId, data] of recordings.entries()) {
+
+    for (const [userId, data] of activeStreams.entries()) {
         if (data.fileStream) data.fileStream.end();
-        recordings.delete(userId);
+        if (data.opusStream) data.opusStream.destroy();
+        activeStreams.delete(userId);
     }
+
+    // Brief delay to ensure file streams flush to disk
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
     const recordingDir = path.join(process.cwd(), 'recordings');
     if (!fs.existsSync(recordingDir)) return [];
@@ -71,13 +76,18 @@ export async function stopRecording(connection, targetChannel) {
     for (const file of files) {
         const pcmPath = path.join(recordingDir, file);
         const wavPath = pcmPath.replace('.pcm', '.wav');
-        
+
         const pcmData = fs.readFileSync(pcmPath);
+        if (pcmData.length === 0) {
+            if (fs.existsSync(pcmPath)) fs.unlinkSync(pcmPath);
+            continue;
+        }
+
         const wavBuffer = pcmToWav(pcmData, 48000, 2, 16);
         fs.writeFileSync(wavPath, wavBuffer);
 
         const userId = file.split('_')[0];
-        
+
         filesToSend.push({
             attachment: wavPath,
             name: `recording_${userId}.wav`,

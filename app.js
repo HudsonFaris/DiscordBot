@@ -83,7 +83,7 @@ client.on('interactionCreate', async (interaction) => {
 
       connection.destroy();
 
-      if (filesToSend.length === 0) {
+      if (!filesToSend || filesToSend.length === 0) {
         await interaction.editReply('Stopped.');
         return;
       }
@@ -93,7 +93,7 @@ client.on('interactionCreate', async (interaction) => {
           content: 'Stopped recording. Here are the files:',
           files: filesToSend.map(f => ({ attachment: f.wavPath, name: f.name }))
         });
-        await interaction.editReply(`Goodbye.`);
+        await interaction.editReply('Goodbye.');
       } catch (err) {
         console.error('Failed to send files:', err.message);
         await interaction.editReply('Stopped x2.');
