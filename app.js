@@ -6,13 +6,13 @@ import { startArgumentEngine } from './argumentEngine.js';
 import { startRecording, stopRecording } from './recorder.js';
 
 
-const client = new Client({ 
+const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildVoiceStates, 
-    GatewayIntentBits.GuildMessages,    
-    GatewayIntentBits.MessageContent    
-  ] 
+    GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ]
 });
 
 // --- SQUAD DATABASE ---
@@ -70,7 +70,7 @@ async function sendSquadLeaderboard(channelId, squadNames) {
 
       const dbInfo = matchedEntry ? matchedEntry[1] : null;
       const displayName = dbInfo?.display || (p.userName || "Unknown Soldier");
-      
+
       const kd = p.killDeath ? p.killDeath.toFixed(2) : "0.00";
       const kills = p.kills || 0;
       const assists = p.killAssists || 0;
@@ -88,12 +88,12 @@ async function sendSquadLeaderboard(channelId, squadNames) {
       const topVehicle = p.vehicles?.sort((a, b) => b.kills - a.kills)[0]?.vehicleName || "None";
       const topGun = p.weapons?.sort((a, b) => b.kills - a.kills)[0]?.weaponName || "None";
 
-      leaderboardEmbed.addFields({ 
-        name: `${i + 1}. ${displayName} (Level ${castLevel})`, 
+      leaderboardEmbed.addFields({
+        name: `${i + 1}. ${displayName} (Level ${castLevel})`,
         value: `**COMBAT**\nK/D: \`${kd}\` | Kills: \`${kills.toLocaleString()}\` | Acc: \`${accuracy}\` \n` +
-               `**PLAYSTYLE**\nClass: \`${topClass}\` | Vehicle: \`${topVehicle}\` | Preferred Gun: \`${topGun}\` \n` +
-               `**TEAMWORK**\nAssists: \`${assists.toLocaleString()}\` | Revives: \`${revives.toLocaleString()}\``,
-        inline: false 
+          `**PLAYSTYLE**\nClass: \`${topClass}\` | Vehicle: \`${topVehicle}\` | Preferred Gun: \`${topGun}\` \n` +
+          `**TEAMWORK**\nAssists: \`${assists.toLocaleString()}\` | Revives: \`${revives.toLocaleString()}\``,
+        inline: false
       });
     });
 
@@ -158,7 +158,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     await interaction.editReply("In.");
   }
 
-    if (interaction.commandName === 'stop') {
+  if (interaction.commandName === 'stop') {
     const connection = getVoiceConnection(interaction.guildId);
     if (!connection) {
       return interaction.reply({ content: "I'm not even in a voice channel, chill.", ephemeral: true });
@@ -177,37 +177,51 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 
   if (interaction.commandName === 'record') {
-    const subcommand = interaction.options.getString('action');
-    const connection = getVoiceConnection(interaction.guildId);
+    // Acknowledge interaction immediately so Discord doesn't time out
+    await interaction.deferReply();
+
+    const subcommand = interaction.options.getSubcommand();
+    const voiceChannel = interaction.member.voice.channel;
 
     if (subcommand === 'start') {
-      await interaction.deferReply();
-      if (connection) {
+      if (!voiceChannel) {
+        return interaction.editReply('You must be in a voice channel to start recording.');
+      }
+
+      try {
+        const connection = joinVoiceChannel({
+          channelId: voiceChannel.id,
+          guildId: interaction.guild.id,
+          adapterCreator: interaction.guild.voiceAdapterCreator,
+          selfDeaf: false,
+        });
+
         startRecording(connection, interaction.guild);
-        await interaction.editReply(' Recording started!');
-      } else {
-        const joined = await handleVoiceJoin(interaction.guildId, interaction.user.id);
-        if (!joined) return interaction.editReply('Join a VC first!');
-        const conn = getVoiceConnection(interaction.guildId);
-        startRecording(conn, interaction.guild);
-        await interaction.editReply(' Recording started!');
+        await interaction.editReply(`Started recording in ${voiceChannel.name}.`);
+      } catch (err) {
+        console.error('Error starting recording:', err);
+        await interaction.editReply('Failed to join the voice channel and start recording.');
       }
     }
 
     if (subcommand === 'stop') {
-  if (!connection) return interaction.reply({ content: 'Not recording anything.', ephemeral: true });
-  await interaction.deferReply();
+      const connection = getVoiceConnection(interaction.guild.id);
 
-  const targetChannelId = process.env.RECORDINGS_CHANNEL_ID;
-  const targetChannel = interaction.guild.channels.cache.get(targetChannelId) 
-                     || await interaction.guild.channels.fetch(targetChannelId);
+      if (!connection) {
+        return interaction.editReply('Not currently recording in any voice channel.');
+      }
 
-  await stopRecording(connection, targetChannel || interaction.channel);
+      const targetChannelId = process.env.RECORDINGS_CHANNEL_ID;
+      const targetChannel = interaction.guild.channels.cache.get(targetChannelId)
+        || await interaction.guild.channels.fetch(targetChannelId);
 
-  connection.destroy();
-  await interaction.editReply(`⏹️ Stopped recording! Files sent to <#${targetChannelId}>.`);
-}
+      await stopRecording(connection, targetChannel || interaction.channel);
+
+      connection.destroy();
+      await interaction.editReply(`Stopped recording. Files sent to <#${targetChannelId}>.`);
+    }
   }
+
 });
 
 client.login(process.env.DISCORD_TOKEN);
