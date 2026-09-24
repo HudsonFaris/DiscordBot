@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, MessageFlags } from 'discord.js';
+import { Client, GatewayIntentBits } from 'discord.js';
 import { joinVoiceChannel, getVoiceConnection } from '@discordjs/voice';
 import dotenv from 'dotenv';
 import { startRecording, stopRecording } from './recorder.js';
@@ -13,7 +13,7 @@ const client = new Client({
   ],
 });
 
-client.once('ready', () => {
+client.once('clientReady', () => {
   console.log(`Gateway connected! ${client.user.tag} is now online.`);
 });
 
@@ -21,7 +21,15 @@ client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
   if (interaction.commandName === 'record') {
-    await interaction.deferReply();
+    // Safely attempt to defer the reply
+    try {
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply();
+      }
+    } catch (err) {
+      console.error('Failed to defer interaction (token expired or handled elsewhere):', err.message);
+      return;
+    }
 
     const subcommand = interaction.options.getSubcommand(false);
 
@@ -64,8 +72,8 @@ client.on('interactionCreate', async (interaction) => {
 
       if (targetChannelId) {
         try {
-          targetChannel = client.channels.cache.get(targetChannelId) 
-                       || await client.channels.fetch(targetChannelId);
+          targetChannel = client.channels.cache.get(targetChannelId)
+            || await client.channels.fetch(targetChannelId);
         } catch (err) {
           console.error(`Failed to fetch channel ID ${targetChannelId}:`, err.message);
         }
