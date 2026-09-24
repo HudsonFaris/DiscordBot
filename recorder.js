@@ -4,10 +4,15 @@ import fs from 'fs';
 import path from 'path';
 
 const activeStreams = new Map();
+let speakingListener;
 
 export function startRecording(connection, guild) {
     const receiver = connection.receiver;
     const recordingDir = path.join(process.cwd(), 'recordings');
+
+    if (speakingListener) {
+        receiver.speaking.off('start', speakingListener);
+    }
 
     if (!fs.existsSync(recordingDir)) {
         fs.mkdirSync(recordingDir, { recursive: true });
@@ -15,7 +20,7 @@ export function startRecording(connection, guild) {
 
     console.log('Recording started - voice receiver active.');
 
-    receiver.speaking.on('start', (userId) => {
+    speakingListener = (userId) => {
         if (activeStreams.has(userId)) return;
 
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -50,11 +55,18 @@ export function startRecording(connection, guild) {
             fileStream.end();
             activeStreams.delete(userId);
         });
-    });
+    };
+
+    receiver.speaking.on('start', speakingListener);
 }
 
 export async function stopRecording(connection) {
     console.log('Stopping recording...');
+
+    if (speakingListener) {
+        connection.receiver.speaking.off('start', speakingListener);
+        speakingListener = undefined;
+    }
 
     for (const [userId, data] of activeStreams.entries()) {
         if (data.fileStream) data.fileStream.end();

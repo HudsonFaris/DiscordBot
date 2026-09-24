@@ -42,8 +42,9 @@ client.on('interactionCreate', async (interaction) => {
         return interaction.editReply('You must be in a voice channel to start recording.');
       }
 
+      let connection;
       try {
-        const connection = joinVoiceChannel({
+        connection = joinVoiceChannel({
           channelId: voiceChannel.id,
           guildId: interaction.guild.id,
           adapterCreator: interaction.guild.voiceAdapterCreator,
@@ -51,12 +52,19 @@ client.on('interactionCreate', async (interaction) => {
           selfMute: false,
         });
 
+        connection.on('stateChange', (oldState, newState) => {
+          console.log(`Voice connection: ${oldState.status} -> ${newState.status}`);
+        });
+
         await entersState(connection, VoiceConnectionStatus.Ready, 15000);
         startRecording(connection, interaction.guild);
         await interaction.editReply(`Hello... ${voiceChannel.name}.`);
       } catch (err) {
-        console.error('Error starting recording:', err);
-        await interaction.editReply('Failed to join the voice.');
+        console.error('Error joining voice channel:', err);
+        connection?.destroy();
+        if (interaction.deferred || interaction.replied) {
+          await interaction.editReply('Failed to join the voice channel. Check the bot permissions and its network access to Discord voice.');
+        }
       }
     }
 
