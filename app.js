@@ -123,13 +123,13 @@ async function handleVoiceJoin(guildId, userId) {
     });
 
     connection.on('stateChange', (oldState, newState) => {
-      console.log(`📡 [STATE] ${oldState.status} -> ${newState.status}`);
+      console.log(` [STATE] ${oldState.status} -> ${newState.status}`);
     });
 
     startArgumentEngine(connection);
     return true;
   } catch (err) {
-    console.error("💥 [CRITICAL FAILURE]:", err);
+    console.error(" [CRITICAL FAILURE]:", err);
     return false;
   }
 }
@@ -164,7 +164,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return interaction.reply({ content: "I'm not even in a voice channel, chill.", ephemeral: true });
     }
     connection.destroy();
-    console.log("🛑 Voice connection destroyed.");
+    console.log(" Voice connection destroyed.");
     await interaction.reply("Out.");
   }
 
@@ -184,23 +184,29 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await interaction.deferReply();
       if (connection) {
         startRecording(connection, interaction.guild);
-        await interaction.editReply('🔴 Recording started!');
+        await interaction.editReply(' Recording started!');
       } else {
         const joined = await handleVoiceJoin(interaction.guildId, interaction.user.id);
         if (!joined) return interaction.editReply('Join a VC first!');
         const conn = getVoiceConnection(interaction.guildId);
         startRecording(conn, interaction.guild);
-        await interaction.editReply('🔴 Recording started!');
+        await interaction.editReply(' Recording started!');
       }
     }
 
     if (subcommand === 'stop') {
-      if (!connection) return interaction.reply({ content: 'Not recording anything.', ephemeral: true });
-      await interaction.deferReply();
-      await stopRecording(connection, interaction.channel);
-      connection.destroy();
-      await interaction.editReply('⏹️ Done! Files sent above.');
-    }
+  if (!connection) return interaction.reply({ content: 'Not recording anything.', ephemeral: true });
+  await interaction.deferReply();
+
+  const targetChannelId = process.env.RECORDINGS_CHANNEL_ID;
+  const targetChannel = interaction.guild.channels.cache.get(targetChannelId) 
+                     || await interaction.guild.channels.fetch(targetChannelId);
+
+  await stopRecording(connection, targetChannel || interaction.channel);
+
+  connection.destroy();
+  await interaction.editReply(`⏹️ Stopped recording! Files sent to <#${targetChannelId}>.`);
+}
   }
 });
 

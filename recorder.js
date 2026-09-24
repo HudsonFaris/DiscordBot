@@ -2,7 +2,6 @@ import { EndBehaviorType } from '@discordjs/voice';
 import prism from 'prism-media';
 import fs from 'fs';
 import path from 'path';
-import { pipeline } from 'stream';
 
 const recordings = new Map();
 
@@ -44,17 +43,17 @@ export function startRecording(connection, guild) {
         pcmStream.pipe(fileStream);
 
         recordings.set(userId, { filePath, fileStream, pcmStream });
-        console.log(`🎙️ Recording user ${userId}`);
+        console.log(`Recording user ${userId}`);
 
         pcmStream.on('end', () => {
             recordings.delete(userId);
-            console.log(`✅ Saved segment for ${userId}`);
+            console.log(`Saved segment for ${userId}`);
         });
     });
 }
 
 export async function stopRecording(connection, channel) {
-    console.log('⏹️ Stopping recording...');
+    console.log('Stopping recording...');
     
     // Close all active streams
     for (const [userId, data] of recordings.entries()) {
@@ -64,6 +63,11 @@ export async function stopRecording(connection, channel) {
 
     // Find all PCM files
     const recordingDir = path.join(process.cwd(), 'recordings');
+    if (!fs.existsSync(recordingDir)) {
+        await channel.send('No audio was recorded.');
+        return;
+    }
+
     const files = fs.readdirSync(recordingDir).filter(f => f.endsWith('.pcm'));
 
     if (files.length === 0) {
@@ -85,17 +89,17 @@ export async function stopRecording(connection, channel) {
         
         try {
             await channel.send({
-                content: `🎙️ Recording for <@${userId}>`,
+                content: `Recording for <@${userId}>`,
                 files: [{ attachment: wavPath, name: `recording_${userId}.wav` }]
             });
-            console.log(`📤 Sent recording for ${userId}`);
+            console.log(`Sent recording for ${userId}`);
         } catch (err) {
             console.error(`Failed to send recording for ${userId}:`, err.message);
         }
 
         // Cleanup files
-        fs.unlinkSync(pcmPath);
-        fs.unlinkSync(wavPath);
+        if (fs.existsSync(pcmPath)) fs.unlinkSync(pcmPath);
+        if (fs.existsSync(wavPath)) fs.unlinkSync(wavPath);
     }
 }
 
