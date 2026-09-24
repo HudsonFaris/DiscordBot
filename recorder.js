@@ -13,7 +13,7 @@ export function startRecording(connection, guild) {
         fs.mkdirSync(recordingDir, { recursive: true });
     }
 
-    console.log('Recording started listener attached');
+    console.log('Recording started - voice receiver active.');
 
     receiver.speaking.on('start', (userId) => {
         if (activeStreams.has(userId)) return;
@@ -62,6 +62,7 @@ export async function stopRecording(connection) {
         activeStreams.delete(userId);
     }
 
+    // Give streams 500ms to flush buffers to disk
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     const recordingDir = path.join(process.cwd(), 'recordings');

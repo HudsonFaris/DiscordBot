@@ -1,5 +1,5 @@
 import { Client, GatewayIntentBits } from 'discord.js';
-import { joinVoiceChannel, getVoiceConnection } from '@discordjs/voice';
+import { joinVoiceChannel, getVoiceConnection, VoiceConnectionStatus, entersState } from '@discordjs/voice';
 import dotenv from 'dotenv';
 import { startRecording, stopRecording, cleanupFiles } from './recorder.js';
 
@@ -20,23 +20,22 @@ client.once('clientReady', () => {
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
-  if (interaction.commandName === 'record') {
-    try {
-      if (!interaction.deferred && !interaction.replied) {
-        await interaction.deferReply();
-      }
-    } catch (err) {
-      console.error('Failed to defer interaction:', err.message);
-      return;
-    }
+  // IMMEDIATELY defer to acknowledge Discord within the 3-second limit
+  try {
+    await interaction.deferReply();
+  } catch (err) {
+    console.error('Interaction expired or already handled:', err.message);
+    return;
+  }
 
+  if (interaction.commandName === 'record') {
     const subcommand = interaction.options.getSubcommand(false);
 
     if (!subcommand) {
       return interaction.editReply('Please specify a subcommand: /record start or /record stop.');
     }
 
-    const voiceChannel = interaction.member.voice.channel;
+    const voiceChannel = interaction.member?.voice?.channel;
 
     if (subcommand === 'start') {
       if (!voiceChannel) {
@@ -49,8 +48,10 @@ client.on('interactionCreate', async (interaction) => {
           guildId: interaction.guild.id,
           adapterCreator: interaction.guild.voiceAdapterCreator,
           selfDeaf: false,
+          selfMute: false,
         });
 
+        await entersState(connection, VoiceConnectionStatus.Ready, 15000);
         startRecording(connection, interaction.guild);
         await interaction.editReply(`Hello... ${voiceChannel.name}.`);
       } catch (err) {
@@ -60,7 +61,7 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     if (subcommand === 'stop') {
-      let connection = getVoiceConnection(interaction.guild.id);
+      const connection = getVoiceConnection(interaction.guild.id);
 
       if (!connection) {
         return interaction.editReply('Not currently.');
@@ -79,7 +80,7 @@ client.on('interactionCreate', async (interaction) => {
       }
 
       const finalChannel = targetChannel || interaction.channel;
-      const filesToSend = await stopRecording(connection, finalChannel);
+      const filesToSend = await stopRecording(connection);
 
       connection.destroy();
 
