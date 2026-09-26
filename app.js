@@ -100,11 +100,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       try {
         const links = results.map(f =>
-          `🎙️ **${f.username}**: ${f.url}`
+          `🎙️ Recording: ${f.url}`
         ).join('\n');
 
         await finalChannel.send({
-          content: `Recording complete! Links expire in 24 hours:\n${links}`,
+          content: `Recording complete! Link expires in 24 hours:\n${links}`,
         });
         await interaction.editReply('Goodbye.');
       } catch (err) {

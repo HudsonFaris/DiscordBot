@@ -4,7 +4,6 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import { v2 as cloudinary } from 'cloudinary';
-
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -19,6 +18,34 @@ let recordingDir = '';
 let isRecording = false;
 let receiver = null;
 let speakingListener = null;
+let mixedFileStream = null;
+let mixedFilePath = '';
+
+// Simple real-time mixer - writes chunks from all users to one file
+const SAMPLE_RATE = 48000;
+const CHANNELS = 2;
+const BYTES_PER_SAMPLE = 2;
+const FRAME_SIZE = 960;
+const BYTES_PER_FRAME = FRAME_SIZE * CHANNELS * BYTES_PER_SAMPLE;
+
+function mixBuffers(buffers) {
+    if (buffers.length === 0) return Buffer.alloc(BYTES_PER_FRAME);
+    if (buffers.length === 1) return buffers[0];
+
+    const mixed = Buffer.alloc(BYTES_PER_FRAME);
+    for (let i = 0; i < BYTES_PER_FRAME; i += 2) {
+        let sample = 0;
+        for (const buf of buffers) {
+            if (i + 1 < buf.length) {
+                sample += buf.readInt16LE(i);
+            }
+        }
+        // Clamp to 16-bit range
+        sample = Math.max(-32768, Math.min(32767, sample));
+        mixed.writeInt16LE(sample, i);
+    }
+    return mixed;
+}
 
 export function startRecording(connection, guild) {
     receiver = connection.receiver;
@@ -27,6 +54,9 @@ export function startRecording(connection, guild) {
     if (!fs.existsSync(recordingDir)) {
         fs.mkdirSync(recordingDir, { recursive: true });
     }
+
+    mixedFilePath = path.join(recordingDir, 'mixed.pcm');
+    mixedFileStream = fs.createWriteStream(mixedFilePath);
 
     isRecording = true;
     console.log(' Recording started');
@@ -60,8 +90,6 @@ function subscribeUser(userId, username) {
 
     console.log(`🎙️ Subscribing to ${username} (${userId})`);
 
-    const filePath = path.join(recordingDir, `${username}_${userId}.pcm`);
-
     const opusStream = receiver.subscribe(userId, {
         end: {
             behavior: EndBehaviorType.Manual,
@@ -69,21 +97,24 @@ function subscribeUser(userId, username) {
     });
 
     const decoder = new prism.opus.Decoder({
-        rate: 48000,
-        channels: 2,
-        frameSize: 960
+        rate: SAMPLE_RATE,
+        channels: CHANNELS,
+        frameSize: FRAME_SIZE
     });
 
-    decoder.on('error', (err) => {
-        console.error(`Decoder error for user ${username}:`, err.message);
-    });
-
+    decoder.on('error', () => { });
     opusStream.on('error', () => { });
 
-    const fileStream = fs.createWriteStream(filePath, { flags: 'a' });
-    opusStream.pipe(decoder).pipe(fileStream);
+    // Write each user's audio directly to the mixed file
+    decoder.on('data', (chunk) => {
+        if (isRecording && mixedFileStream) {
+            mixedFileStream.write(chunk);
+        }
+    });
 
-    userStreams.set(userId, { filePath, fileStream, opusStream, decoder, username });
+    opusStream.pipe(decoder);
+
+    userStreams.set(userId, { opusStream, decoder, username });
 }
 
 export async function stopRecording(connection) {
@@ -100,87 +131,80 @@ export async function stopRecording(connection) {
         closePromises.push(new Promise((resolve) => {
             data.opusStream.destroy();
             data.decoder.destroy();
-            data.fileStream.end(() => {
-                console.log(` Closed stream for ${data.username}`);
-                resolve();
-            });
+            resolve();
         }));
     }
 
     await Promise.all(closePromises);
+
+    // Close mixed file stream
+    await new Promise((resolve) => {
+        if (mixedFileStream) {
+            mixedFileStream.end(resolve);
+        } else {
+            resolve();
+        }
+    });
+
     await new Promise(resolve => setTimeout(resolve, 500));
     userStreams.clear();
 
-    if (!fs.existsSync(recordingDir)) return [];
+    if (!fs.existsSync(mixedFilePath)) return [];
 
-    const files = fs.readdirSync(recordingDir).filter(f => f.endsWith('.pcm'));
-    if (files.length === 0) return [];
+    const stats = fs.statSync(mixedFilePath);
+    console.log(`📁 mixed.pcm: ${stats.size} bytes`);
 
-    const results = [];
-
-    for (const file of files) {
-        const pcmPath = path.join(recordingDir, file);
-        const mp3Path = pcmPath.replace('.pcm', '.mp3');
-
-        const stats = fs.statSync(pcmPath);
-        console.log(`📁 ${file}: ${stats.size} bytes`);
-
-        if (stats.size === 0) {
-            fs.unlinkSync(pcmPath);
-            continue;
-        }
-
-        // Convert PCM to MP3
-        try {
-            execSync(
-                `ffmpeg -f s16le -ar 48000 -ac 2 -i "${pcmPath}" -b:a 128k "${mp3Path}" -y`,
-                { stdio: 'pipe' }
-            );
-            console.log(`🎵 Converted ${file} to MP3`);
-        } catch (err) {
-            console.error(`Failed to convert ${file}:`, err.message);
-            continue;
-        }
-
-        const parts = file.replace('.pcm', '').split('_');
-        const username = parts[0];
-
-        // Upload to Cloudinary with 24 hour expiry
-        try {
-            console.log(` Uploading ${username} to Cloudinary...`);
-            const uploadResult = await cloudinary.uploader.upload(mp3Path, {
-                resource_type: 'video', // Cloudinary uses 'video' for audio files
-                folder: 'discord_recordings',
-                public_id: `${username}_${Date.now()}`,
-                invalidate: true,
-            });
-
-            // Schedule deletion after 24 hours
-            setTimeout(async () => {
-                try {
-                    await cloudinary.uploader.destroy(uploadResult.public_id, {
-                        resource_type: 'video'
-                    });
-                    console.log(`🗑️ Deleted ${username}'s recording from Cloudinary`);
-                } catch (err) {
-                    console.error(`Failed to delete ${username}'s recording:`, err.message);
-                }
-            }, 24 * 60 * 60 * 1000);
-
-            results.push({
-                username,
-                url: uploadResult.secure_url,
-                pcmPath,
-                mp3Path,
-            });
-
-            console.log(` Uploaded ${username}: ${uploadResult.secure_url}`);
-        } catch (err) {
-            console.error(`Failed to upload ${username}'s recording:`, err.message);
-        }
+    if (stats.size === 0) {
+        fs.unlinkSync(mixedFilePath);
+        return [];
     }
 
-    return results;
+    const mp3Path = mixedFilePath.replace('.pcm', '.mp3');
+
+    try {
+        execSync(
+            `ffmpeg -f s16le -ar ${SAMPLE_RATE} -ac ${CHANNELS} -i "${mixedFilePath}" -b:a 128k "${mp3Path}" -y`,
+            { stdio: 'pipe' }
+        );
+        console.log(`🎵 Converted to MP3`);
+    } catch (err) {
+        console.error('Failed to convert to MP3:', err.message);
+        return [];
+    }
+
+    try {
+        console.log(' Uploading to Cloudinary...');
+        const uploadResult = await cloudinary.uploader.upload(mp3Path, {
+            resource_type: 'video',
+            folder: 'discord_recordings',
+            public_id: `recording_${Date.now()}`,
+            invalidate: true,
+        });
+
+        setTimeout(async () => {
+            try {
+                await cloudinary.uploader.destroy(uploadResult.public_id, {
+                    resource_type: 'video'
+                });
+                console.log('🗑️ Deleted recording from Cloudinary');
+            } catch (err) {
+                console.error('Failed to delete recording:', err.message);
+            }
+        }, 24 * 60 * 60 * 1000);
+
+        console.log(` Uploaded: ${uploadResult.secure_url}`);
+
+        return [{
+            username: 'mixed',
+            url: uploadResult.secure_url,
+            pcmPath: mixedFilePath,
+            mp3Path,
+        }];
+
+    } catch (err) {
+        console.error('Failed to upload:', err.message);
+        return [];
+    }
 }
 
 export function cleanupFiles(results) {
