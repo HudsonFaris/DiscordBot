@@ -20,7 +20,6 @@ client.once(Events.ClientReady, (readyClient) => {
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
-  // IMMEDIATELY defer to acknowledge Discord within the 3-second limit
   try {
     await interaction.deferReply();
   } catch (err) {
@@ -63,7 +62,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         console.error('Error joining voice channel:', err);
         connection?.destroy();
         if (interaction.deferred || interaction.replied) {
-          await interaction.editReply('Failed to join the voice channel. Check the bot permissions and its network access to Discord voice.');
+          await interaction.editReply('Failed to join the voice channel.');
         }
       }
     }
@@ -72,7 +71,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const connection = getVoiceConnection(interaction.guild.id);
 
       if (!connection) {
-        return interaction.editReply('Not currently.');
+        return interaction.editReply('Not currently recording.');
       }
 
       const targetChannelId = process.env.RECORDINGS_CHANNEL_ID?.trim();
@@ -88,28 +87,31 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
 
       const finalChannel = targetChannel || interaction.channel;
-      const filesToSend = await stopRecording(connection);
+      const results = await stopRecording(connection);
 
       if (connection.state.status !== VoiceConnectionStatus.Destroyed) {
         connection.destroy();
       }
 
-      if (!filesToSend || filesToSend.length === 0) {
-        await interaction.editReply('Stopped.');
+      if (!results || results.length === 0) {
+        await interaction.editReply('Stopped. No audio recorded.');
         return;
       }
 
       try {
+        const links = results.map(f =>
+          `🎙️ **${f.username}**: ${f.url}`
+        ).join('\n');
+
         await finalChannel.send({
-          content: 'Stopped recording. Here are the files:',
-          files: filesToSend.map(f => ({ attachment: f.mp3Path, name: f.name }))
+          content: `Recording complete! Links expire in 24 hours:\n${links}`,
         });
         await interaction.editReply('Goodbye.');
       } catch (err) {
-        console.error('Failed to send files:', err.message);
-        await interaction.editReply('Stopped x2.');
+        console.error('Failed to send links:', err.message);
+        await interaction.editReply('Stopped but failed to send links.');
       } finally {
-        cleanupFiles(filesToSend);
+        cleanupFiles(results);
       }
     }
   }

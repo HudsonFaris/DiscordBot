@@ -3,6 +3,13 @@ import prism from 'prism-media';
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
+import { v2 as cloudinary } from 'cloudinary';
+
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 const userStreams = new Map();
 let recordingDir = '';
@@ -13,15 +20,15 @@ let speakingListener = null;
 export function startRecording(connection, guild) {
     receiver = connection.receiver;
     recordingDir = path.join(process.cwd(), 'recordings', Date.now().toString());
-    
+
     if (!fs.existsSync(recordingDir)) {
         fs.mkdirSync(recordingDir, { recursive: true });
     }
 
     isRecording = true;
-    console.log('🔴 Recording started');
+    console.log(' Recording started');
 
-    const voiceChannel = guild.channels.cache.find(c => 
+    const voiceChannel = guild.channels.cache.find(c =>
         c.isVoiceBased?.() && c.members?.has(guild.members.me?.id)
     );
 
@@ -68,7 +75,7 @@ function subscribeUser(userId, username) {
         console.error(`Decoder error for user ${username}:`, err.message);
     });
 
-    opusStream.on('error', () => {});
+    opusStream.on('error', () => { });
 
     const fileStream = fs.createWriteStream(filePath, { flags: 'a' });
     opusStream.pipe(decoder).pipe(fileStream);
@@ -77,7 +84,7 @@ function subscribeUser(userId, username) {
 }
 
 export async function stopRecording(connection) {
-    console.log('⏹️ Stopping recording...');
+    console.log(' Stopping recording...');
     isRecording = false;
 
     if (speakingListener && receiver) {
@@ -91,7 +98,7 @@ export async function stopRecording(connection) {
             data.opusStream.destroy();
             data.decoder.destroy();
             data.fileStream.end(() => {
-                console.log(`✅ Closed stream for ${data.username}`);
+                console.log(` Closed stream for ${data.username}`);
                 resolve();
             });
         }));
@@ -106,7 +113,7 @@ export async function stopRecording(connection) {
     const files = fs.readdirSync(recordingDir).filter(f => f.endsWith('.pcm'));
     if (files.length === 0) return [];
 
-    const filesToSend = [];
+    const results = [];
 
     for (const file of files) {
         const pcmPath = path.join(recordingDir, file);
@@ -120,6 +127,7 @@ export async function stopRecording(connection) {
             continue;
         }
 
+        // Convert PCM to MP3
         try {
             execSync(
                 `ffmpeg -f s16le -ar 48000 -ac 2 -i "${pcmPath}" -b:a 128k "${mp3Path}" -y`,
@@ -134,23 +142,51 @@ export async function stopRecording(connection) {
         const parts = file.replace('.pcm', '').split('_');
         const username = parts[0];
 
-        filesToSend.push({
-            mp3Path,
-            pcmPath,
-            name: `${username}_recording.mp3`,
-        });
+        // Upload to Cloudinary with 24 hour expiry
+        try {
+            console.log(` Uploading ${username} to Cloudinary...`);
+            const uploadResult = await cloudinary.uploader.upload(mp3Path, {
+                resource_type: 'video', // Cloudinary uses 'video' for audio files
+                folder: 'discord_recordings',
+                public_id: `${username}_${Date.now()}`,
+                invalidate: true,
+            });
+
+            // Schedule deletion after 24 hours
+            setTimeout(async () => {
+                try {
+                    await cloudinary.uploader.destroy(uploadResult.public_id, {
+                        resource_type: 'video'
+                    });
+                    console.log(`🗑️ Deleted ${username}'s recording from Cloudinary`);
+                } catch (err) {
+                    console.error(`Failed to delete ${username}'s recording:`, err.message);
+                }
+            }, 24 * 60 * 60 * 1000);
+
+            results.push({
+                username,
+                url: uploadResult.secure_url,
+                pcmPath,
+                mp3Path,
+            });
+
+            console.log(` Uploaded ${username}: ${uploadResult.secure_url}`);
+        } catch (err) {
+            console.error(`Failed to upload ${username}'s recording:`, err.message);
+        }
     }
 
-    return filesToSend;
+    return results;
 }
 
-export function cleanupFiles(filesToSend) {
-    for (const file of filesToSend) {
+export function cleanupFiles(results) {
+    for (const file of results) {
         if (fs.existsSync(file.pcmPath)) fs.unlinkSync(file.pcmPath);
         if (fs.existsSync(file.mp3Path)) fs.unlinkSync(file.mp3Path);
     }
 
     if (fs.existsSync(recordingDir)) {
-        try { fs.rmdirSync(recordingDir); } catch(e) {}
+        try { fs.rmdirSync(recordingDir); } catch (e) { }
     }
 }
