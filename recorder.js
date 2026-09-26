@@ -1,7 +1,8 @@
-import { EndBehaviorType, VoiceConnectionStatus } from '@discordjs/voice';
+import { EndBehaviorType } from '@discordjs/voice';
 import prism from 'prism-media';
 import fs from 'fs';
 import path from 'path';
+import { execSync } from 'child_process';
 
 const userStreams = new Map();
 let recordingDir = '';
@@ -12,16 +13,15 @@ let speakingListener = null;
 export function startRecording(connection, guild) {
     receiver = connection.receiver;
     recordingDir = path.join(process.cwd(), 'recordings', Date.now().toString());
-
+    
     if (!fs.existsSync(recordingDir)) {
         fs.mkdirSync(recordingDir, { recursive: true });
     }
 
     isRecording = true;
-    console.log(' Recording started');
+    console.log('🔴 Recording started');
 
-    // Subscribe to all members already in the channel
-    const voiceChannel = guild.channels.cache.find(c =>
+    const voiceChannel = guild.channels.cache.find(c => 
         c.isVoiceBased?.() && c.members?.has(guild.members.me?.id)
     );
 
@@ -33,7 +33,6 @@ export function startRecording(connection, guild) {
         });
     }
 
-    // Subscribe when new people start speaking
     speakingListener = (userId) => {
         if (!isRecording) return;
         if (userStreams.has(userId)) return;
@@ -65,8 +64,11 @@ function subscribeUser(userId, username) {
         frameSize: 960
     });
 
-    decoder.on('error', () => { });
-    opusStream.on('error', () => { });
+    decoder.on('error', (err) => {
+        console.error(`Decoder error for user ${username}:`, err.message);
+    });
+
+    opusStream.on('error', () => {});
 
     const fileStream = fs.createWriteStream(filePath, { flags: 'a' });
     opusStream.pipe(decoder).pipe(fileStream);
@@ -75,7 +77,7 @@ function subscribeUser(userId, username) {
 }
 
 export async function stopRecording(connection) {
-    console.log(' Stopping recording...');
+    console.log('⏹️ Stopping recording...');
     isRecording = false;
 
     if (speakingListener && receiver) {
@@ -83,7 +85,6 @@ export async function stopRecording(connection) {
         speakingListener = null;
     }
 
-    // Close all streams
     const closePromises = [];
     for (const [userId, data] of userStreams.entries()) {
         closePromises.push(new Promise((resolve) => {
@@ -100,7 +101,6 @@ export async function stopRecording(connection) {
     await new Promise(resolve => setTimeout(resolve, 500));
     userStreams.clear();
 
-    // Convert PCM files to WAV
     if (!fs.existsSync(recordingDir)) return [];
 
     const files = fs.readdirSync(recordingDir).filter(f => f.endsWith('.pcm'));
@@ -110,24 +110,34 @@ export async function stopRecording(connection) {
 
     for (const file of files) {
         const pcmPath = path.join(recordingDir, file);
-        const wavPath = pcmPath.replace('.pcm', '.wav');
+        const mp3Path = pcmPath.replace('.pcm', '.mp3');
 
-        const pcmData = fs.readFileSync(pcmPath);
-        if (pcmData.length === 0) {
+        const stats = fs.statSync(pcmPath);
+        console.log(`📁 ${file}: ${stats.size} bytes`);
+
+        if (stats.size === 0) {
             fs.unlinkSync(pcmPath);
             continue;
         }
 
-        const wavBuffer = pcmToWav(pcmData, 48000, 2, 16);
-        fs.writeFileSync(wavPath, wavBuffer);
+        try {
+            execSync(
+                `ffmpeg -f s16le -ar 48000 -ac 2 -i "${pcmPath}" -b:a 128k "${mp3Path}" -y`,
+                { stdio: 'pipe' }
+            );
+            console.log(`🎵 Converted ${file} to MP3`);
+        } catch (err) {
+            console.error(`Failed to convert ${file}:`, err.message);
+            continue;
+        }
 
         const parts = file.replace('.pcm', '').split('_');
         const username = parts[0];
 
         filesToSend.push({
-            wavPath,
+            mp3Path,
             pcmPath,
-            name: `${username}_recording.wav`,
+            name: `${username}_recording.mp3`,
         });
     }
 
@@ -137,35 +147,10 @@ export async function stopRecording(connection) {
 export function cleanupFiles(filesToSend) {
     for (const file of filesToSend) {
         if (fs.existsSync(file.pcmPath)) fs.unlinkSync(file.pcmPath);
-        if (fs.existsSync(file.wavPath)) fs.unlinkSync(file.wavPath);
+        if (fs.existsSync(file.mp3Path)) fs.unlinkSync(file.mp3Path);
     }
 
-    // Clean up recording directory
     if (fs.existsSync(recordingDir)) {
-        try { fs.rmdirSync(recordingDir); } catch (e) { }
+        try { fs.rmdirSync(recordingDir); } catch(e) {}
     }
-}
-
-function pcmToWav(pcmData, sampleRate, channels, bitDepth) {
-    const byteRate = sampleRate * channels * bitDepth / 8;
-    const blockAlign = channels * bitDepth / 8;
-    const dataSize = pcmData.length;
-    const buffer = Buffer.alloc(44 + dataSize);
-
-    buffer.write('RIFF', 0);
-    buffer.writeUInt32LE(36 + dataSize, 4);
-    buffer.write('WAVE', 8);
-    buffer.write('fmt ', 12);
-    buffer.writeUInt32LE(16, 16);
-    buffer.writeUInt16LE(1, 20);
-    buffer.writeUInt16LE(channels, 22);
-    buffer.writeUInt32LE(sampleRate, 24);
-    buffer.writeUInt32LE(byteRate, 28);
-    buffer.writeUInt16LE(blockAlign, 32);
-    buffer.writeUInt16LE(bitDepth, 34);
-    buffer.write('data', 36);
-    buffer.writeUInt32LE(dataSize, 40);
-    pcmData.copy(buffer, 44);
-
-    return buffer;
 }

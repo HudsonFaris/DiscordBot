@@ -102,7 +102,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       try {
         await finalChannel.send({
           content: 'Stopped recording. Here are the files:',
-          files: filesToSend.map(f => ({ attachment: f.wavPath, name: f.name }))
+          files: filesToSend.map(f => ({ attachment: f.mp3Path, name: f.name }))
         });
         await interaction.editReply('Goodbye.');
       } catch (err) {
