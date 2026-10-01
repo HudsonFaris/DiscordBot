@@ -106,9 +106,9 @@ client.once(Events.ClientReady, (readyClient) => {
 
   readyClient.user.setPresence({
     activities: [{
-      name: 'Fairhaven Middle School',
+      name: 'Evolving...',
       type: ActivityType.Playing,
-      state: 'Milking'
+      state: 'Milking Miguel'
     }],
     status: 'dnd',
   });
