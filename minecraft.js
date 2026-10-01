@@ -8,26 +8,34 @@ export function setupMinecraftStatus(client) {
         return;
     }
 
-    console.log('🎮 Minecraft status updater initialized (10-minute interval).');
+    console.log('🎮 Minecraft status updater initialized (1-minute interval).');
 
     // Function to perform the status update
     async function updateStatus() {
-        mc.ping({ host: 'localhost', port: 25565 }, async (err, res) => {
+        console.log('pinging minecraft server...'); // <-- Debug log to verify timer is ticking
+
+        mc.ping({ host: 'localhost', port: 25565, timeout: 3000 }, async (err, res) => {
             try {
                 const channel = await client.channels.fetch(MINECRAFT_CHANNEL_ID);
-                if (!channel) return;
+                if (!channel) {
+                    console.error('❌ Minecraft channel not found!');
+                    return;
+                }
 
                 // 1. Ensure the channel name itself is always "minecraft"
                 if (channel.name !== 'minecraft') {
                     await channel.setName('minecraft');
+                    console.log('Renamed channel back to "minecraft".');
                 }
 
                 // 2. Format the topic header
                 let topicText = '';
                 if (err) {
                     topicText = '🔴 Offline | Server unreachable';
+                    console.log('Minecraft server ping failed:', err.message);
                 } else {
                     topicText = `🟩 ${res.players.online}/${res.players.max} player(s) online`;
+                    console.log(`Minecraft ping successful: ${res.players.online}/${res.players.max} players`);
                 }
 
                 // Update the channel topic if it changed
@@ -36,7 +44,6 @@ export function setupMinecraftStatus(client) {
                     console.log('Updated Minecraft channel topic.');
                 }
             } catch (error) {
-                // If it fails due to permissions on the name change, log it clearly
                 console.error('Minecraft status update error:', error.message);
             }
         });
@@ -45,6 +52,6 @@ export function setupMinecraftStatus(client) {
     // Run once immediately on startup
     updateStatus();
 
-    // Then run every 10 minutes (600,000 ms)
+    // Then run every 1 minute (60,000 ms)
     setInterval(updateStatus, 60000);
 }
