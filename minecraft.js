@@ -21,7 +21,7 @@ export function setupMinecraftStatus(client) {
                     if (err) {
                         topicText = '🔴 Offline | Server unreachable';
                     } else {
-                        topicText = `🟩 ${res.players.online}/${res.players.max} player(s) online`;
+                        topicText = `🟩 ${res.players.online}/${res.players.max} player(s) online | Join at 150.230.46.68`;
 
                         if (channel.name !== 'minecraft') {
                             await channel.setName('minecraft');
