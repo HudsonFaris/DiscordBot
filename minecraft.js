@@ -20,10 +20,10 @@ export function setupMinecraftStatus(client) {
                 let topicText = '';
 
                 if (err) {
-                    nameText = '🔴-offline';
+                    nameText = 'Minecraft';
                     topicText = `🔴 Offline | Server unreachable `;
                 } else {
-                    nameText = `🟩-${res.players.online}-${res.players.max}`;
+                    nameText = `Minecraft`;
                     topicText = `🟩 ${res.players.online}/${res.players.max} player(s) online `;
                 }
 
