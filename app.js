@@ -15,6 +15,16 @@ const client = new Client({
 
 client.once(Events.ClientReady, (readyClient) => {
   console.log(` Gateway connected! ${readyClient.user.tag} is now online.`);
+
+  //presence config
+  readyClient.user.setPresence({
+    activities: [{
+      name: 'Visual Studio Code',
+      type: ActivityType.Playing,
+      state: 'Doing some BS'
+    }],
+    status: 'dnd',
+  });
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
