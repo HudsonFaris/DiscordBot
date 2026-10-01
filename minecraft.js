@@ -43,5 +43,5 @@ export function setupMinecraftStatus(client) {
                 console.error('Minecraft status update error:', error.message);
             }
         });
-    }, 600000);
+    }, 60000);
 }
