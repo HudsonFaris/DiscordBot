@@ -1,18 +1,18 @@
-import { ping } from 'minecraft-protocol';
+import mc from 'minecraft-protocol';
 
 export function setupMinecraftStatus(client) {
     const MINECRAFT_CHANNEL_ID = process.env.MINECRAFT_CHANNEL_ID;
 
     if (!MINECRAFT_CHANNEL_ID) {
-        console.warn(' MINECRAFT_CHANNEL_ID not found in .env. Status updater disabled.');
+        console.warn('⚠️ MINECRAFT_CHANNEL_ID not found in .env. Status updater disabled.');
         return;
     }
 
-    console.log('Minecraft status updater initialized.');
+    console.log('🎮 Minecraft status updater initialized.');
 
     // Run every 60 seconds
     setInterval(async () => {
-        ping({ host: 'localhost', port: 25565 }, async (err, res) => {
+        mc.ping({ host: 'localhost', port: 25565 }, async (err, res) => {
             try {
                 const channel = await client.channels.fetch(MINECRAFT_CHANNEL_ID);
                 if (!channel) return;
