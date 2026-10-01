@@ -46,5 +46,5 @@ export function setupMinecraftStatus(client) {
     updateStatus();
 
     // Then run every 10 minutes (600,000 ms)
-    setInterval(updateStatus, 600000);
+    setInterval(updateStatus, 60000);
 }
