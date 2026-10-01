@@ -15,3 +15,7 @@ uvicorn
 faster-whisper
 ollama
 torch
+
+minecraft-protocol
+Cloudinary
+

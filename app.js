@@ -3,6 +3,7 @@ import { joinVoiceChannel, getVoiceConnection, VoiceConnectionStatus, entersStat
 import dotenv from 'dotenv';
 import axios from 'axios';
 import { startRecording, stopRecording, cleanupFiles } from './recorder.js';
+import { setupMinecraftStatus } from './minecraft.js'; // Imported standalone module
 
 dotenv.config();
 
@@ -86,7 +87,7 @@ async function sendSquadLeaderboard(channelId, squadNames) {
       const topGun = p.weapons?.sort((a, b) => b.kills - a.kills)[0]?.weaponName || "None";
 
       leaderboardEmbed.addFields({
-        name: `${i + 1}. ${displayName} (Level ${castLevel})`,
+        name: `${i + 1}. ${displayName} (Level${castLevel})`,
         value: `**COMBAT**\nK/D: \`${kd}\` | Kills: \`${kills.toLocaleString()}\` | Acc: \`${accuracy}\` \n` +
           `**PLAYSTYLE**\nClass: \`${topClass}\` | Vehicle: \`${topVehicle}\` | Preferred Gun: \`${topGun}\` \n` +
           `**TEAMWORK**\nAssists: \`${assists.toLocaleString()}\` | Revives: \`${revives.toLocaleString()}\``,
@@ -112,6 +113,9 @@ client.once(Events.ClientReady, (readyClient) => {
     }],
     status: 'dnd',
   });
+
+  // Initialize the modular Minecraft status updater
+  setupMinecraftStatus(readyClient);
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -204,7 +208,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       try {
         const links = results.map(f =>
-          `🎙️ Recording: ${f.url}`
+          ` Recording: ${f.url}`
         ).join('\n');
 
         await finalChannel.send({
