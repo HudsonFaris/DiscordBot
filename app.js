@@ -19,9 +19,9 @@ client.once(Events.ClientReady, (readyClient) => {
   //presence config
   readyClient.user.setPresence({
     activities: [{
-      name: 'Visual Studio Code',
+      name: 'Fairhaven Middle School',
       type: ActivityType.Playing,
-      state: 'Doing some BS'
+      state: 'Milking'
     }],
     status: 'dnd',
   });
