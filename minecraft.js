@@ -10,7 +10,7 @@ export function setupMinecraftStatus(client) {
 
     console.log('🎮 Minecraft status updater initialized.');
 
-    // Run every 60 seconds
+    // Run every 10 min
     setInterval(async () => {
         mc.ping({ host: 'localhost', port: 25565 }, async (err, res) => {
             try {
@@ -35,5 +35,5 @@ export function setupMinecraftStatus(client) {
                 }
             }
         });
-    }, 60000);
+    }, 600000);
 }
