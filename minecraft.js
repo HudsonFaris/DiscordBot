@@ -15,6 +15,7 @@ export function setupMinecraftStatus(client) {
                     if (!channel) {
                         return;
                     }
+                    // rever
 
                     let topicText = '';
 
